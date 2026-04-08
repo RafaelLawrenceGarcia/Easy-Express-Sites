@@ -444,7 +444,7 @@ function Hero({ onAuth, ownsGame, onBuyClick }) {
               {"⬇ DOWNLOAD DEMO"} <span style={{ fontSize: 11, opacity: 0.7, fontWeight: 600 }}>Free • Windows</span>
             </button>
             <button onClick={onBuyClick} className="ee-btn-glow" style={{ background: `linear-gradient(135deg,${PU},${A2})`, border: "none", color: T, padding: "16px 32px", borderRadius: 10, fontFamily: F1, fontWeight: 800, fontSize: 15, cursor: "pointer", letterSpacing: 1, boxShadow: `0 0 32px ${PU}25`, display: "flex", alignItems: "center", gap: 8 }}>
-              {"🛒 BUY FULL GAME"} <span style={{ fontSize: 13, fontWeight: 700, color: A }}>₱299</span>
+              {"🛒 BUY FULL GAME"} <span style={{ fontSize: 13, fontWeight: 700, color: A }}>1</span>
             </button>
           </>
         )}
@@ -459,7 +459,7 @@ function Hero({ onAuth, ownsGame, onBuyClick }) {
         </div>
       )}
       <div style={{ marginTop: 36, display: "flex", gap: 40, color: TD, fontFamily: F1, fontSize: 13, fontWeight: 600, animation: "fadeSlideUp 0.8s ease-out 0.6s both", flexWrap: "wrap", justifyContent: "center" }}>
-        {["Windows 10/11", ownsGame ? "Full Version" : "Demo Free / Full ₱299", "One-Time Purchase"].map((t) => (
+        {["Windows 10/11", ownsGame ? "Full Version" : "Demo Free / Full 1", "One-Time Purchase"].map((t) => (
           <span key={t} style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <span style={{ color: A, fontSize: 16 }}>{"✓"}</span> {t}
           </span>
@@ -925,7 +925,7 @@ function CheckoutModal({ onClose, onSuccess, addToast, sessionTicket, playFabId 
   const [gcashNumber, setGcashNumber] = useState("");
   const [error, setError] = useState("");
 
-  const PRICE = "₱299.00";
+  const PRICE = "1.00";
   const GAME_TITLE = "Easy Express — Full Game";
 
   const inputStyle = {

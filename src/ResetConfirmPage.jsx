@@ -57,20 +57,28 @@ export default function ResetConfirmPage() {
   const handleSubmit = async () => {
     if (newPassword.length < 8) { setError("Password must be at least 8 characters."); return; }
     if (newPassword !== confirmPw) { setError("Passwords do not match."); return; }
+    if (!token) { setError("No reset token found. Please request a new link."); return; }
     setLoading(true); setError("");
     try {
-      // POST to Vercel function which calls Admin/ResetUserPassword with Token
-      const res = await fetch("/api/reset-password", {
+      const res = await fetch("https://164227.playfabapi.com/Client/ResetPassword", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, newPassword })
+        body: JSON.stringify({ TitleId: "164227", Token: token, Password: newPassword })
       });
-      const json = await res.json();
-      if (!json.success) throw new Error(json.error || "Password reset failed.");
-      setDone(true);
-    } catch (err) {
-      setError(err.message);
-    }
+      const text = await res.text();
+      // PlayFab returns empty body or 200 on success
+      if (res.ok || text === "" || text.includes('"code":200')) {
+        setDone(true);
+      } else {
+        try {
+          const json = JSON.parse(text);
+          throw new Error(json.errorMessage || `Error ${res.status}`);
+        } catch(e) {
+          if (e.message.startsWith("Error")) throw e;
+          throw new Error(`HTTP ${res.status}`);
+        }
+      }
+    } catch (err) { setError(err.message); }
     setLoading(false);
   };
 

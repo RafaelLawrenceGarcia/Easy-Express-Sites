@@ -140,7 +140,7 @@ export function invalidateGuestTicket() {
 //  PUBLIC: LEADERBOARD (with 5-minute session cache)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const LB_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const LB_CACHE_TTL = 30 * 1000; // 30 seconds // 5 minutes
 
 export async function fetchPublicLeaderboard(statisticName, maxResults = 10) {
   const cacheKey = `ee_lb_${statisticName}`;

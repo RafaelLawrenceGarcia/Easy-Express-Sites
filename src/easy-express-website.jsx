@@ -1668,25 +1668,32 @@ export default function EasyExpressSite() {
     const paymentStatus = params.get("payment");
 
     if (paymentStatus === "success") {
-      window.history.replaceState({}, "", window.location.pathname + window.location.hash);
-      setOwnsGame(true);
-      addToast({
-        type: "success",
-        title: "Purchase Complete! 🎉",
-        message: "Easy Express Full Game is now unlocked. Download the full version!",
-        duration: 8000,
-      });
-    }
-    if (paymentStatus === "cancelled") {
-      window.history.replaceState({}, "", window.location.pathname + window.location.hash);
-      addToast({
-        type: "warning",
-        title: "Payment Cancelled",
-        message: "Your payment was not completed. No charge was made.",
-        duration: 5000,
-      });
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  window.history.replaceState({}, "", window.location.pathname + window.location.hash);
+  const ticket = localStorage.getItem("ee_session_ticket");
+  if (ticket) {
+    checkFullGameOwnership(ticket).then(owned => {
+      if (owned) {
+        setOwnsGame(true);
+        addToast({
+          type: "success",
+          title: "Purchase Complete! 🎉",
+          message: "Easy Express Full Game is now unlocked. Download the full version!",
+          duration: 8000,
+        });
+      }
+    }).catch(() => {});
+  }
+}
+if (paymentStatus === "cancelled") {
+  window.history.replaceState({}, "", window.location.pathname + window.location.hash);
+  addToast({
+    type: "warning",
+    title: "Payment Cancelled",
+    message: "Your payment was not completed. No charge was made.",
+    duration: 5000,
+  });
+}
+}, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useScrollReveal();
 

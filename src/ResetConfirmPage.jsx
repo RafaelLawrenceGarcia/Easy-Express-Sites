@@ -45,11 +45,25 @@ export default function ResetConfirmPage() {
   const [noToken, setNoToken]     = useState(false);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const t = params.get("token");
-    if (t) setToken(t);
-    else setNoToken(true);
-  }, []);
+  let tokenFound = null;
+
+  // 1. Check standard search params first (e.g., /?token=XXXX#/reset-confirm)
+  const standardParams = new URLSearchParams(window.location.search);
+  tokenFound = standardParams.get("token");
+
+  // 2. If not found, check inside the hash string (e.g., /#/reset-confirm?token=XXXX)
+  if (!tokenFound && window.location.hash.includes("?")) {
+    const hashQuery = window.location.hash.split("?")[1];
+    const hashParams = new URLSearchParams(hashQuery);
+    tokenFound = hashParams.get("token");
+  }
+
+  if (tokenFound) {
+    setToken(tokenFound);
+  } else {
+    setNoToken(true);
+  }
+}, []);
 
   const inputStyle = { width:"100%",padding:"14px 16px",background:BG,border:`1px solid ${BD}`,borderRadius:10,color:T,fontSize:15,fontFamily:F1,outline:"none",boxSizing:"border-box",transition:"border-color 0.3s" };
   const pwToggle = (a) => ({ position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",color:a?A:TD,cursor:"pointer",fontFamily:F1,fontSize:11,fontWeight:700,padding:0 });

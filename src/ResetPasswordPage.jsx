@@ -68,18 +68,26 @@ export default function ResetPasswordPage() {
   ) : null;
 
   // Step 1
-  const handleSubmitEmail = async () => {
-    const trimmed = email.trim().toLowerCase();
-    if (!trimmed.includes("@")) { setError("Please enter a valid email address."); return; }
+    const handleSubmit = async () => {
+    if (newPassword.length < 8) { setError("Password must be at least 8 characters."); return; }
+    if (newPassword !== confirmPw) { setError("Passwords do not match."); return; }
+    if (!token) { setError("No reset token found."); return; }
     setLoading(true); setError("");
     try {
-      const t = await getGuestTicket(); setTicket(t);
-      const cs = await runCloudScript(t, "sendPasswordResetOTP", { email: trimmed });
-      const r = cs.FunctionResult;
-      if (!r || r.error) throw new Error(r?.error || "Server error.");
-      await sendOTPviaEmailJS(trimmed, r.code);
-      setLoading(false); setStep(2);
-    } catch (err) { setLoading(false); setError(err.message); }
+      const res = await fetch(`https://164227.playfabapi.com/Client/ResetPassword`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ TitleId: "164227", Token: token, Password: newPassword })
+      });
+      const text = await res.text();
+      if (res.ok || text === "" || text.includes('"code":200')) {
+        setDone(true);
+      } else {
+        const json = JSON.parse(text);
+        throw new Error(json.errorMessage || `Error ${res.status}`);
+      }
+    } catch (err) { setError(err.message); }
+    setLoading(false);
   };
 
   // Step 2

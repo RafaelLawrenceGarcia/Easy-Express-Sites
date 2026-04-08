@@ -258,7 +258,7 @@ export default function UserDashboard() {
                     No transactions yet. Purchase the full game to see your receipt here.
                   </p>
                   <a href="#/" style={{ display: "inline-block", marginTop: 16, padding: "10px 22px", background: `linear-gradient(135deg,${PU},${A2})`, borderRadius: 8, color: T, fontFamily: F1, fontWeight: 800, fontSize: 12, textDecoration: "none", letterSpacing: 1 }}>
-                    🛒 BUY FULL GAME — ₱299
+                    🛒 BUY FULL GAME — ₱1
                   </a>
                 </div>
               )}

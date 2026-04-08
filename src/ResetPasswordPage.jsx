@@ -1,11 +1,3 @@
-// ============================================================
-//  ResetPasswordPage.jsx — FINAL
-//  Step 1: Email → OTP sent via EmailJS
-//  Step 2: Verify OTP
-//  Step 3: OTP verified → Client/SendAccountRecoveryEmail sent
-//          → "Check email for reset link"
-// ============================================================
-
 import React, { useState, useRef, useEffect } from "react";
 
 const TITLE_ID = "164227";
@@ -67,30 +59,20 @@ export default function ResetPasswordPage() {
     </div>
   ) : null;
 
-  // Step 1
-    const handleSubmit = async () => {
-    if (newPassword.length < 8) { setError("Password must be at least 8 characters."); return; }
-    if (newPassword !== confirmPw) { setError("Passwords do not match."); return; }
-    if (!token) { setError("No reset token found."); return; }
+  const handleSubmitEmail = async () => {
+    const trimmed = email.trim().toLowerCase();
+    if (!trimmed.includes("@")) { setError("Please enter a valid email address."); return; }
     setLoading(true); setError("");
     try {
-      const res = await fetch(`https://164227.playfabapi.com/Client/ResetPassword`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ TitleId: "164227", Token: token, Password: newPassword })
-      });
-      const text = await res.text();
-      if (res.ok || text === "" || text.includes('"code":200')) {
-        setDone(true);
-      } else {
-        const json = JSON.parse(text);
-        throw new Error(json.errorMessage || `Error ${res.status}`);
-      }
-    } catch (err) { setError(err.message); }
-    setLoading(false);
+      const t = await getGuestTicket(); setTicket(t);
+      const cs = await runCloudScript(t, "sendPasswordResetOTP", { email: trimmed });
+      const r = cs.FunctionResult;
+      if (!r || r.error) throw new Error(r?.error || "Server error.");
+      await sendOTPviaEmailJS(trimmed, r.code);
+      setLoading(false); setStep(2);
+    } catch (err) { setLoading(false); setError(err.message); }
   };
 
-  // Step 2
   const handleOtpChange = (i,v) => { if(!/^\d*$/.test(v))return; const n=[...otpCode];n[i]=v.slice(-1);setOtpCode(n); if(v&&i<5&&otpRefs.current[i+1])otpRefs.current[i+1].focus(); };
   const handleOtpKey   = (i,e) => { if(e.key==="Backspace"&&!otpCode[i]&&i>0&&otpRefs.current[i-1])otpRefs.current[i-1].focus(); };
   const handleOtpPaste = (e) => { e.preventDefault();const p=e.clipboardData.getData("text").replace(/\D/g,"").slice(0,6);if(p.length===6){setOtpCode(p.split(""));if(otpRefs.current[5])otpRefs.current[5].focus();} };
@@ -102,8 +84,7 @@ export default function ResetPasswordPage() {
     try {
       const r = await runCloudScript(ticket, "verifyPasswordResetOTPOnly", { email: email.trim().toLowerCase(), code });
       if (!r.FunctionResult?.success) throw new Error(r.FunctionResult?.error || "Invalid or expired code.");
-
-      // OTP verified — send PlayFab recovery email using Account recovery template
+      // Send PlayFab recovery email
       const recoveryRes = await fetch(`${BASE_URL}/Client/SendAccountRecoveryEmail`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -111,12 +92,11 @@ export default function ResetPasswordPage() {
       });
       const recoveryJson = await recoveryRes.json();
       if (recoveryJson.code !== 200) throw new Error(recoveryJson.errorMessage || "Failed to send reset email.");
-
       setLoading(false); setStep(3);
     } catch (err) { setLoading(false); setError(err.message); }
   };
 
-  const stepLabels = ["Email","Verify","Check Email"];
+  const stepLabels = ["Email","Verify","Done"];
   const Steps = () => (
     <div style={{display:"flex",alignItems:"center",justifyContent:"center",marginBottom:36}}>
       {stepLabels.map((label,i) => {
@@ -154,7 +134,6 @@ export default function ResetPasswordPage() {
           <Steps/>
           <Err/>
 
-          {/* STEP 1 */}
           {step===1&&(
             <div style={{animation:"fadeSlideUp 0.4s ease-out"}}>
               <div style={{width:72,height:72,borderRadius:18,background:`${A}10`,border:`1px solid ${A}20`,display:"grid",placeItems:"center",margin:"0 auto 24px",fontSize:36}}>🔑</div>
@@ -174,7 +153,6 @@ export default function ResetPasswordPage() {
             </div>
           )}
 
-          {/* STEP 2 */}
           {step===2&&(
             <div style={{textAlign:"center",animation:"fadeSlideUp 0.4s ease-out"}}>
               <div style={{width:68,height:68,borderRadius:16,background:`${A}10`,border:`1px solid ${A}20`,display:"grid",placeItems:"center",margin:"0 auto 24px",fontSize:32}}>📧</div>
@@ -201,7 +179,6 @@ export default function ResetPasswordPage() {
             </div>
           )}
 
-          {/* STEP 3 — LINK SENT */}
           {step===3&&(
             <div style={{textAlign:"center",animation:"fadeSlideUp 0.4s ease-out"}}>
               <div style={{width:88,height:88,borderRadius:"50%",background:`${OK}10`,border:`2px solid ${OK}35`,display:"grid",placeItems:"center",margin:"0 auto 28px",animation:"successPop 0.6s cubic-bezier(0.16,1,0.3,1) both"}}>
@@ -212,7 +189,7 @@ export default function ResetPasswordPage() {
               <p style={{color:A,fontSize:15,fontFamily:F1,fontWeight:700,margin:"0 0 32px"}}>{email}</p>
               <div style={{textAlign:"left",padding:"20px 22px",background:BG,borderRadius:14,border:`1px solid ${BD}`,marginBottom:24}}>
                 <div style={{fontFamily:F2,fontSize:11,fontWeight:700,color:A,letterSpacing:2,marginBottom:14}}>WHAT TO DO NEXT</div>
-                {["Check your email for a password reset link","Click the link — it opens a Set New Password page","Enter your new password and you're done"].map((s,i)=>(
+                {["Check your email for a password reset link","Click the link to set your new password","Log in with your new password"].map((s,i)=>(
                   <div key={i} style={{display:"flex",gap:12,alignItems:"flex-start",marginBottom:i<2?10:0}}>
                     <span style={{fontFamily:F2,fontSize:10,fontWeight:800,color:OK,background:`${OK}15`,padding:"3px 8px",borderRadius:5,flexShrink:0}}>{i+1}</span>
                     <span style={{fontFamily:F1,fontSize:13,color:TD,lineHeight:1.5}}>{s}</span>

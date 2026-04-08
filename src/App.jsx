@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import EasyExpressSite from './easy-express-website';
 import ResetPasswordPage from './ResetPasswordPage';
+import ResetConfirmPage from './ResetConfirmPage';
 
 export default function App() {
   const [route, setRoute] = useState(window.location.hash);
@@ -11,10 +12,8 @@ export default function App() {
     return () => window.removeEventListener("hashchange", handleHash);
   }, []);
 
-  // Show reset password page when URL is /#/reset-password
-  if (route === "#/reset-password") {
-    return <ResetPasswordPage />;
-  }
+  if (route === "#/reset-password") return <ResetPasswordPage />;
+  if (route.startsWith("#/reset-confirm")) return <ResetConfirmPage />;
 
   return <EasyExpressSite />;
 }

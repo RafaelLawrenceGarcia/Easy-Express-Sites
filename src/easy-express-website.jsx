@@ -1047,6 +1047,7 @@ function CheckoutModal({ onClose, onSuccess, addToast, sessionTicket, playFabId 
                 <label style={labelStyle}>Payment Method</label>
                 <div style={{ display: "flex", gap: 10 }}>
                   {[
+                    { id: "qrph", label: "QRPh (Scan)", icon: "📷", color: OK },
                     { id: "gcash", label: "GCash", icon: "📱", color: "#007AFF" },
                     { id: "card", label: "Credit / Debit", icon: "💳", color: A },
                   ].map(m => (

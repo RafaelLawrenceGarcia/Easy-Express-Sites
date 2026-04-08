@@ -22,7 +22,7 @@ export default async function handler(req, res) {
   const { method, playFabId } = req.body;
 
   // ── Input validation ───────────────────────────────────────────────────────
-  if (!method || !["gcash", "card"].includes(method))
+  if (!method || !["gcash", "card", "qrph"].includes(method))
     return res.status(400).json({ error: "Invalid payment method. Choose GCash or Card." });
   if (!playFabId || typeof playFabId !== "string" || playFabId.length < 10)
     return res.status(400).json({ error: "A valid logged-in account is required to purchase." });
@@ -47,7 +47,7 @@ export default async function handler(req, res) {
             quantity: 1,
           },
         ],
-        payment_method_types: method === "gcash" ? ["gcash"] : ["card"],
+        payment_method_types: [method],
         description: "Easy Express Full Game — Team 4R Thesis Project",
         // After payment, PayMongo redirects to these URLs.
         // The playFabId is in the URL so the return page can re-verify state.

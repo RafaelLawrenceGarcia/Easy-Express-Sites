@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { registerUser, loginWithEmail, loginWithUsername, executeCloudScript } from './playfab';
+import { registerUser, loginWithEmail, loginWithUsername, executeCloudScript, saveFullGameOwnership, checkFullGameOwnership } from './playfab';
 import { sendOTPEmail } from './email';
 import emailjs from '@emailjs/browser';
 import { fetchTitleData } from './playfab';
@@ -54,40 +54,34 @@ const F1 = "'Chakra Petch', sans-serif";
 const F2 = "'Orbitron', sans-serif";
 
 const PLAYFAB_TITLE_ID = "164227";
-
 const TEAM = [
   { name: "Rafael Lawrence P. Garcia", role: "Lead Developer", av: "RM" },
   { name: "Darnell Zeth S. Rodrigues", role: "Game Designer", av: "JD" },
   { name: "Joshua D. Rodil", role: "UI/UX & Web", av: "KC" },
   { name: "Russel Ongonion", role: "QA & Research", av: "AL" },
 ];
-
 const FEATURES = [
   { icon: "🔧", title: "Build PCs From Scratch", desc: "Learn real hardware assembly — CPUs, GPUs, RAM, PSUs, and more. Every slot, every cable, every thermal paste application matters.", tag: "LEARN" },
   { icon: "💰", title: "Run Your Own Shop", desc: "Manage budgets, stock inventory, price components, and serve walk-in customers. Balance profit margins with customer satisfaction.", tag: "MANAGE" },
   { icon: "🔍", title: "Diagnose & Troubleshoot", desc: "Face real-world PC issues — Blue Screens, boot failures, overheating, and misplaced components. Find the fault. Fix the machine.", tag: "FIX" },
   { icon: "🏪", title: "Realistic Retail Sim", desc: "Inspired by iconic Philippine PC shops like EasyPC and PC Express. Interact with NPCs, fulfill service jobs, and grow your store.", tag: "SIMULATE" },
 ];
-
 const SCENARIOS = [
   { title: "Blue Screen of Death", desc: "Diagnose driver conflicts, faulty RAM, or corrupt system files causing the dreaded BSOD.", color: "#3d7aff" },
   { title: "No Boot — Misplaced RAM", desc: "A customer's PC won't POST. Find the unseated DIMM, reseat it, and bring the system back to life.", color: WN },
   { title: "Overheating & Shutdowns", desc: "Thermal paste dried up? Fan cable unplugged? Investigate thermals before the CPU throttles to death.", color: A2 },
   { title: "Dead PSU Swap", desc: "No power at all. Test, remove, and replace the power supply unit — and manage the cable mess.", color: PU },
 ];
-
 const NEWS = [
   { id: 1, type: "UPDATE", date: "Mar 20, 2026", title: "Open Beta v0.9.2 Released", desc: "New GPU installation mechanics, improved NPC dialogue system, and 3 new customer scenarios added.", color: OK },
   { id: 2, type: "EVENT", date: "Mar 15, 2026", title: "Thesis Defense Countdown", desc: "Easy Express will be presented at the CS Department thesis defense panel. Wish us luck!", color: WN },
   { id: 3, type: "PATCH", date: "Mar 10, 2026", title: "Hotfix: RAM Slot Detection", desc: "Fixed an issue where DDR4 sticks were accepted in DDR5 slots. Compatibility checks are now accurate.", color: A },
   { id: 4, type: "NEW", date: "Mar 5, 2026", title: "Website Launch", desc: "The official Easy Express portal is now live! Create your account, download the game, and start building.", color: A2 },
 ];
-
 const SPECS = {
   minimum: { os: "Windows 10 (64-bit)", cpu: "Intel Core i5-4460 / AMD FX-6300", ram: "8 GB RAM", gpu: "NVIDIA GTX 760 / AMD R7 260X", storage: "2 GB available space", dx: "DirectX 11" },
   recommended: { os: "Windows 10/11 (64-bit)", cpu: "Intel Core i7-8700 / AMD Ryzen 5 3600", ram: "16 GB RAM", gpu: "NVIDIA GTX 1060 / AMD RX 580", storage: "4 GB available space", dx: "DirectX 12" },
 };
-
 const FAQS = [
   { q: "Is Easy Express free to play?", a: "Yes! Easy Express is completely free. It's a thesis project built by Team 4R and is available for direct download — no Steam required." },
   { q: "Do I need an account to play?", a: "Yes, you'll need to create an account and verify your email before playing. This lets us save your progress and sync your shop data." },
@@ -107,6 +101,7 @@ const GALLERY_ITEMS = [
    PLAYFAB HELPERS
    ═══════════════════════════════════════════ */
 const PLAYFAB_BASE = `https://${PLAYFAB_TITLE_ID}.playfabapi.com`;
+
 async function pfAdmin(endpoint, body, secretKey) {
   const res = await fetch(`${PLAYFAB_BASE}/Admin/${endpoint}`, {
     method: "POST",
@@ -322,11 +317,9 @@ function ServerStatus() {
     const interval = setInterval(check, 60000);
     return () => { cancelled = true; clearInterval(interval); };
   }, []);
-
   const isOnline = status === "online";
   const dotColor = status === "checking" ? WN : isOnline ? OK : A2;
   const label = status === "checking" ? "Checking..." : isOnline ? "Online" : "Offline";
-
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 20, background: `${dotColor}10`, border: `1px solid ${dotColor}25` }}>
       <div style={{
@@ -353,7 +346,6 @@ function Nav({ onAuth, activeSection, isAdmin, onAdminToggle, showAdmin, current
     return () => window.removeEventListener("scroll", h);
   }, []);
   const links = ["features", "scenarios", "gallery", "news", "leaderboards", "specs", "faq", "support", "about"];
-  
   return (
     <nav className="ee-nav" style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 100, background: scrolled ? `${BG}f0` : `${BG}cc`, backdropFilter: "blur(20px)", borderBottom: `1px solid ${scrolled ? BD : "transparent"}`, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 clamp(1rem,4vw,3rem)", height: 64, fontFamily: F1, transition: "all 0.3s" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -416,10 +408,13 @@ function Nav({ onAuth, activeSection, isAdmin, onAdminToggle, showAdmin, current
 /* ═══════════════════════════════════════════
    SECTIONS
    ═══════════════════════════════════════════ */
-function Hero({ onAuth }) {
-  const handleDownload = () => {
+function Hero({ onAuth, ownsGame, onBuyClick }) {
+  const handleDownload = (isFull) => {
     trackDownload();
-    window.open("https://your-cdn.com/EasyExpress_Setup.exe", "_blank");
+    const url = isFull
+      ? "https://your-cdn.com/EasyExpress_Full_Setup.exe"
+      : "https://your-cdn.com/EasyExpress_Demo_Setup.exe";
+    window.open(url, "_blank");
   };
 
   return (
@@ -439,15 +434,32 @@ function Hero({ onAuth }) {
         <span style={{ color: T }}>Easy Express</span>{" is the PC shop simulator that teaches you everything from thermal paste to profit margins."}
       </p>
       <div style={{ display: "flex", gap: 16, flexWrap: "wrap", justifyContent: "center", animation: "fadeSlideUp 0.8s ease-out 0.45s both" }}>
-        <button onClick={handleDownload} className="ee-download-btn" style={{ background: `linear-gradient(135deg,${A},#00b8d4)`, border: "none", color: BG, padding: "16px 36px", borderRadius: 10, fontFamily: F1, fontWeight: 800, fontSize: 16, cursor: "pointer", letterSpacing: 1, boxShadow: `0 0 40px ${A}30`, display: "flex", alignItems: "center", gap: 10 }}>
-          {"⬇ DOWNLOAD NOW"} <span style={{ fontSize: 11, opacity: 0.7, fontWeight: 600 }}>Windows .exe</span>
-        </button>
+        {ownsGame ? (
+          <button onClick={() => handleDownload(true)} className="ee-download-btn" style={{ background: `linear-gradient(135deg,${OK},${A})`, border: "none", color: BG, padding: "16px 36px", borderRadius: 10, fontFamily: F1, fontWeight: 800, fontSize: 16, cursor: "pointer", letterSpacing: 1, boxShadow: `0 0 40px ${OK}30`, display: "flex", alignItems: "center", gap: 10 }}>
+            {"⬇ DOWNLOAD FULL VERSION"} <span style={{ fontSize: 11, opacity: 0.7, fontWeight: 600 }}>Windows .exe</span>
+          </button>
+        ) : (
+          <>
+            <button onClick={() => handleDownload(false)} className="ee-download-btn" style={{ background: `linear-gradient(135deg,${A},#00b8d4)`, border: "none", color: BG, padding: "16px 36px", borderRadius: 10, fontFamily: F1, fontWeight: 800, fontSize: 16, cursor: "pointer", letterSpacing: 1, boxShadow: `0 0 40px ${A}30`, display: "flex", alignItems: "center", gap: 10 }}>
+              {"⬇ DOWNLOAD DEMO"} <span style={{ fontSize: 11, opacity: 0.7, fontWeight: 600 }}>Free • Windows</span>
+            </button>
+            <button onClick={onBuyClick} className="ee-btn-glow" style={{ background: `linear-gradient(135deg,${PU},${A2})`, border: "none", color: T, padding: "16px 32px", borderRadius: 10, fontFamily: F1, fontWeight: 800, fontSize: 15, cursor: "pointer", letterSpacing: 1, boxShadow: `0 0 32px ${PU}25`, display: "flex", alignItems: "center", gap: 8 }}>
+              {"🛒 BUY FULL GAME"} <span style={{ fontSize: 13, fontWeight: 700, color: A }}>₱299</span>
+            </button>
+          </>
+        )}
         <button onClick={() => onAuth("signup")} className="ee-btn-outline" style={{ background: CARD, border: `1px solid ${BD}`, color: T, padding: "16px 32px", borderRadius: 10, fontFamily: F1, fontWeight: 700, fontSize: 15, cursor: "pointer", letterSpacing: 1 }}>
           CREATE ACCOUNT
         </button>
       </div>
-      <div style={{ marginTop: 48, display: "flex", gap: 40, color: TD, fontFamily: F1, fontSize: 13, fontWeight: 600, animation: "fadeSlideUp 0.8s ease-out 0.6s both", flexWrap: "wrap", justifyContent: "center" }}>
-        {["Windows 10/11", "~2 GB Download", "Free to Play"].map((t) => (
+      {!ownsGame && (
+        <div style={{ marginTop: 16, padding: "8px 18px", borderRadius: 20, background: `${PU}10`, border: `1px solid ${PU}25`, animation: "fadeSlideUp 0.8s ease-out 0.5s both" }}>
+          <span style={{ fontFamily: F1, fontSize: 12, color: TD }}>Demo includes 2 scenarios. </span>
+          <span style={{ fontFamily: F1, fontSize: 12, color: PU, fontWeight: 700 }}>Full game unlocks all 12+ scenarios, full shop management, and leaderboards.</span>
+        </div>
+      )}
+      <div style={{ marginTop: 36, display: "flex", gap: 40, color: TD, fontFamily: F1, fontSize: 13, fontWeight: 600, animation: "fadeSlideUp 0.8s ease-out 0.6s both", flexWrap: "wrap", justifyContent: "center" }}>
+        {["Windows 10/11", ownsGame ? "Full Version" : "Demo Free / Full ₱299", "One-Time Purchase"].map((t) => (
           <span key={t} style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <span style={{ color: A, fontSize: 16 }}>{"✓"}</span> {t}
           </span>
@@ -521,9 +533,7 @@ function Scenarios() {
 function GallerySection() {
   const [playingVideo, setPlayingVideo] = useState(null);
   const modalVideoRef = useRef(null);
-
   const closeModal = () => setPlayingVideo(null);
-
   return (
     <section id="gallery" style={{ padding: "100px clamp(1rem,4vw,3rem)", maxWidth: 1200, margin: "0 auto" }}>
       <div className="ee-reveal" style={{ textAlign: "center", marginBottom: 64 }}>
@@ -531,7 +541,6 @@ function GallerySection() {
         <h2 style={{ fontFamily: F2, fontSize: "clamp(1.8rem,4vw,2.5rem)", fontWeight: 800, color: T, margin: "12px 0 16px" }}>Gallery</h2>
         <p style={{ color: TD, maxWidth: 520, margin: "0 auto", lineHeight: 1.7, fontFamily: F1, fontSize: 15 }}>Screenshots and footage from the Easy Express beta. See the shop, the builds, and the chaos.</p>
       </div>
-
       <div className="ee-grid-4" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 20 }}>
         {GALLERY_ITEMS.map((item, i) => (
           <div key={i} className="ee-reveal ee-stagger ee-gallery-hover" style={{ "--stagger": i, background: CARD, border: `1px solid ${BD}`, borderRadius: 14, overflow: "hidden" }}>
@@ -560,39 +569,11 @@ function GallerySection() {
           </div>
         ))}
       </div>
-
-      {/* Video Player Modal */}
       {playingVideo && (
-        <div
-          onClick={closeModal}
-          style={{
-            position: "fixed", inset: 0, zIndex: 300,
-            background: "rgba(0,0,0,0.92)", display: "grid", placeItems: "center",
-            cursor: "pointer", animation: "fadeIn 0.3s ease-out",
-          }}
-        >
+        <div onClick={closeModal} style={{ position: "fixed", inset: 0, zIndex: 300, background: "rgba(0,0,0,0.92)", display: "grid", placeItems: "center", cursor: "pointer", animation: "fadeIn 0.3s ease-out" }}>
           <div onClick={(e) => e.stopPropagation()} style={{ width: "90%", maxWidth: 900, position: "relative" }}>
-            <button
-              onClick={closeModal}
-              style={{
-                position: "absolute", top: -44, right: 0,
-                background: "none", border: "none", color: T,
-                fontSize: 28, cursor: "pointer", fontFamily: F1, lineHeight: 1,
-              }}
-            >✕</button>
-            <video
-              ref={modalVideoRef}
-              key={playingVideo}
-              src={playingVideo}
-              controls
-              onLoadedMetadata={() => {
-                if (modalVideoRef.current) {
-                  modalVideoRef.current.muted = false;
-                  modalVideoRef.current.volume = 1;
-                }
-              }}
-              style={{ width: "100%", borderRadius: 12, boxShadow: `0 0 60px ${A}20`, display: "block" }}
-            />
+            <button onClick={closeModal} style={{ position: "absolute", top: -44, right: 0, background: "none", border: "none", color: T, fontSize: 28, cursor: "pointer", fontFamily: F1, lineHeight: 1 }}>✕</button>
+            <video ref={modalVideoRef} key={playingVideo} src={playingVideo} controls onLoadedMetadata={() => { if (modalVideoRef.current) { modalVideoRef.current.muted = false; modalVideoRef.current.volume = 1; } }} style={{ width: "100%", borderRadius: 12, boxShadow: `0 0 60px ${A}20`, display: "block" }} />
           </div>
         </div>
       )}
@@ -817,6 +798,12 @@ function About() {
 }
 
 function Footer() {
+  const navLinks = ["features", "scenarios", "gallery", "news", "leaderboards", "specs", "faq", "support", "about"];
+  const legalLinks = [
+    { slug: "terms",   label: "Terms of Service" },
+    { slug: "privacy", label: "Privacy Policy" },
+    { slug: "refunds", label: "Refund Policy" },
+  ];
   return (
     <footer style={{ borderTop: `1px solid ${BD}`, padding: "48px clamp(1rem,4vw,3rem) 32px" }}>
       <div className="ee-footer-grid" style={{ maxWidth: 1200, margin: "0 auto", display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: 40, marginBottom: 40 }}>
@@ -829,8 +816,11 @@ function Footer() {
         </div>
         <div>
           <div style={{ fontFamily: F2, fontSize: 11, fontWeight: 700, color: T, letterSpacing: 2, marginBottom: 12 }}>QUICK LINKS</div>
-          {["features", "scenarios", "gallery", "news", "leaderboards", "specs", "faq", "support", "about"].map((l) => (
+          {navLinks.map((l) => (
             <a key={l} href={"#" + l} style={{ display: "block", fontFamily: F1, fontSize: 13, color: TD, textDecoration: "none", marginBottom: 8, textTransform: "capitalize" }}>{l}</a>
+          ))}
+          {legalLinks.map((l) => (
+            <a key={l.slug} href={"#/" + l.slug} style={{ display: "block", fontFamily: F1, fontSize: 13, color: TD, textDecoration: "none", marginBottom: 8 }}>{l.label}</a>
           ))}
         </div>
         <div>
@@ -850,7 +840,7 @@ function Footer() {
 }
 
 /* ═══════════════════════════════════════════
-   AUTH — News Sidebar, Success View, OTP View
+   AUTH — News Sidebar, Success View, Otp View
    ═══════════════════════════════════════════ */
 function AuthNewsSidebar({ liveNews }) {
   const displayNews = liveNews && liveNews.length > 0 ? liveNews : NEWS;
@@ -905,8 +895,11 @@ function SuccessView({ successType, username, onClose }) {
 }
 
 function OtpView({ formData, otpCode, setOtpCode, otpRefs, handleVerifyOTP, handleResendOTP, loading }) {
-  const handleOtpChange = (index, value) => { if (!/^\d*$/.test(value)) return; const next = [...otpCode]; next[index] = value.slice(-1); setOtpCode(next); if (value && index < 5 && otpRefs.current[index + 1]) otpRefs.current[index + 1].focus(); };
-  const handleOtpKeyDown = (index, e) => { if (e.key === "Backspace" && !otpCode[index] && index > 0 && otpRefs.current[index - 1]) otpRefs.current[index - 1].focus(); };
+  const handleOtpChange = (index, value) => { if (!/^\d*$/.test(value)) return;
+  const next = [...otpCode]; next[index] = value.slice(-1); setOtpCode(next); if (value && index < 5 && otpRefs.current[index + 1]) otpRefs.current[index + 1].focus();
+  };
+  const handleOtpKeyDown = (index, e) => { if (e.key === "Backspace" && !otpCode[index] && index > 0 && otpRefs.current[index - 1]) otpRefs.current[index - 1].focus();
+  };
   return (
     <div style={{ textAlign: "center", paddingTop: 20 }}>
       <div style={{ width: 60, height: 60, borderRadius: 14, background: `${A}12`, border: `1px solid ${A}25`, display: "grid", placeItems: "center", margin: "0 auto 20px", fontSize: 28 }}>{"📧"}</div>
@@ -923,7 +916,264 @@ function OtpView({ formData, otpCode, setOtpCode, otpRefs, handleVerifyOTP, hand
 }
 
 /* ═══════════════════════════════════════════
-   AUTH MODAL — CHANGED: Forgot Password → #/reset-password
+   CHECKOUT MODAL
+   ═══════════════════════════════════════════ */
+function CheckoutModal({ onClose, onSuccess, addToast, sessionTicket, playFabId }) {
+  const [step, setStep] = useState(1);
+  const [method, setMethod] = useState(null);
+  const [cardData, setCardData] = useState({ name: "", number: "", expiry: "", cvv: "" });
+  const [gcashNumber, setGcashNumber] = useState("");
+  const [error, setError] = useState("");
+
+  const PRICE = "₱299.00";
+  const GAME_TITLE = "Easy Express — Full Game";
+
+  const inputStyle = {
+    width: "100%", padding: "12px 14px", background: BG,
+    border: `1px solid ${BD}`, borderRadius: 8, color: T,
+    fontSize: 14, fontFamily: F1, outline: "none",
+    transition: "border-color 0.3s", boxSizing: "border-box",
+  };
+
+  const labelStyle = {
+    display: "block", marginBottom: 6, color: TD,
+    fontSize: 11, fontWeight: 700, letterSpacing: 1.5,
+    fontFamily: F1, textTransform: "uppercase",
+  };
+
+  const formatCardNumber = (v) => v.replace(/\D/g, "").slice(0, 16).replace(/(.{4})/g, "$1 ").trim();
+  const formatExpiry = (v) => { const d = v.replace(/\D/g, "").slice(0, 4); return d.length >= 3 ? d.slice(0, 2) + "/" + d.slice(2) : d; };
+
+  const handleProceed = async () => {
+    setError("");
+    if (!method) { setError("Please select a payment method."); return; }
+    if (method === "gcash") {
+      if (!/^09\d{9}$/.test(gcashNumber.replace(/\s/g, ""))) {
+        setError("Enter a valid GCash number (e.g. 09XXXXXXXXX).");
+        return;
+      }
+    }
+    if (method === "card") {
+      if (!cardData.name.trim()) { setError("Enter the cardholder name."); return; }
+      if (cardData.number.replace(/\s/g, "").length < 16) { setError("Enter a valid 16-digit card number."); return; }
+      if (cardData.expiry.length < 5) { setError("Enter a valid expiry date (MM/YY)."); return; }
+      if (cardData.cvv.length < 3) { setError("Enter a valid CVV."); return; }
+    }
+    if (!playFabId) {
+      setError("Account error. Please log out and log back in.");
+      return;
+    }
+
+    setStep(3);
+
+    try {
+      const res = await fetch("/api/create-checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ method, playFabId }),
+      });
+      const data = await res.json();
+
+      if (!res.ok || !data.checkoutUrl) {
+        setStep(2);
+        setError(data.error || "Could not start payment. Please try again.");
+        return;
+      }
+
+      window.location.href = data.checkoutUrl;
+
+    } catch (e) {
+      setStep(2);
+      setError("Network error. Check your connection and try again.");
+    }
+  };
+
+  const OrderSummary = () => (
+    <div style={{ width: 220, background: BG, borderRight: `1px solid ${BD}`, padding: "28px 20px", display: "flex", flexDirection: "column", flexShrink: 0 }}>
+      <div style={{ fontFamily: F2, fontSize: 10, fontWeight: 700, color: A, letterSpacing: 2, marginBottom: 16 }}>ORDER SUMMARY</div>
+      <div style={{ flex: 1 }}>
+        <div style={{ padding: "14px", background: CARD, borderRadius: 10, border: `1px solid ${BD}`, marginBottom: 16 }}>
+          <div style={{ width: 40, height: 40, borderRadius: 8, background: `linear-gradient(135deg,${A},${A2})`, display: "grid", placeItems: "center", fontWeight: 800, fontSize: 14, color: BG, fontFamily: F1, marginBottom: 10 }}>EE</div>
+          <div style={{ fontFamily: F2, fontSize: 12, fontWeight: 700, color: T, marginBottom: 4 }}>{GAME_TITLE}</div>
+          <div style={{ fontFamily: F1, fontSize: 11, color: TD, lineHeight: 1.5 }}>Full game license. One-time purchase. All future updates included.</div>
+        </div>
+        {[{ l: "Game", v: "Easy Express" }, { l: "Edition", v: "Full Version" }, { l: "Platform", v: "Windows PC" }].map((r, i) => (
+          <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${BD}` }}>
+            <span style={{ fontFamily: F1, fontSize: 11, color: TD }}>{r.l}</span>
+            <span style={{ fontFamily: F1, fontSize: 11, color: T, fontWeight: 600 }}>{r.v}</span>
+          </div>
+        ))}
+      </div>
+      <div style={{ marginTop: 20, paddingTop: 16, borderTop: `1px solid ${BD}` }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontFamily: F1, fontSize: 12, color: TD, fontWeight: 700 }}>TOTAL</span>
+          <span style={{ fontFamily: F2, fontSize: 20, fontWeight: 900, color: A }}>{PRICE}</span>
+        </div>
+        <div style={{ fontFamily: F1, fontSize: 10, color: TD, marginTop: 6, opacity: 0.7 }}>One-time payment. No subscription.</div>
+      </div>
+      <div style={{ marginTop: 16, padding: "10px 12px", background: `${OK}08`, borderRadius: 8, border: `1px solid ${OK}20` }}>
+        <div style={{ fontFamily: F1, fontSize: 10, color: OK, fontWeight: 700, marginBottom: 3 }}>🔒 Secure Checkout</div>
+        <div style={{ fontFamily: F1, fontSize: 10, color: TD, lineHeight: 1.4 }}>Your payment info is encrypted and never stored.</div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div
+      style={{ position: "fixed", inset: 0, zIndex: 200, background: `${BG}dd`, backdropFilter: "blur(24px)", display: "grid", placeItems: "center", padding: 20, animation: "fadeIn 0.3s ease-out" }}
+      onClick={step !== 3 ? onClose : undefined}
+    >
+      <div
+        style={{ background: CARD, border: `1px solid ${BD}`, borderRadius: 20, width: "100%", maxWidth: 680, position: "relative", overflow: "hidden", animation: "modalSlideUp 0.4s cubic-bezier(0.16,1,0.3,1)", display: "flex", minHeight: 480 }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: step === 4 ? `linear-gradient(90deg,${OK},${A})` : `linear-gradient(90deg,${PU},${A})`, zIndex: 1 }} />
+        {step !== 4 && <OrderSummary />}
+        <div style={{ flex: 1, padding: "36px 32px", position: "relative", overflowY: "auto" }}>
+          {step !== 3 && step !== 4 && (
+            <button onClick={onClose} style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", color: TD, fontSize: 18, cursor: "pointer" }}>✕</button>
+          )}
+
+          {(step === 1 || step === 2) && (
+            <div style={{ animation: "fadeSlideUp 0.3s ease-out" }}>
+              <h2 style={{ fontFamily: F2, fontSize: 19, fontWeight: 800, color: T, margin: "0 0 4px" }}>Complete Purchase</h2>
+              <p style={{ color: TD, fontSize: 12, fontFamily: F1, margin: "0 0 24px" }}>Select your payment method to unlock the full game.</p>
+              {error && (
+                <div style={{ color: A2, fontSize: 12, marginBottom: 16, fontFamily: F1, padding: "10px 14px", background: `${A2}0a`, borderRadius: 10, border: `1px solid ${A2}25`, display: "flex", gap: 8, alignItems: "center" }}>
+                  <span>⚠</span> {error}
+                </div>
+              )}
+              <div style={{ marginBottom: 20 }}>
+                <label style={labelStyle}>Payment Method</label>
+                <div style={{ display: "flex", gap: 10 }}>
+                  {[
+                    { id: "gcash", label: "GCash", icon: "📱", color: "#007AFF" },
+                    { id: "card", label: "Credit / Debit", icon: "💳", color: A },
+                  ].map(m => (
+                    <button
+                      key={m.id}
+                      onClick={() => { setMethod(m.id); setStep(2); setError(""); }}
+                      style={{
+                        flex: 1, padding: "14px 10px", borderRadius: 10, cursor: "pointer",
+                        background: method === m.id ? `${m.color}15` : BG,
+                        border: `2px solid ${method === m.id ? m.color : BD}`,
+                        display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
+                        transition: "all 0.25s",
+                      }}
+                    >
+                      <span style={{ fontSize: 24 }}>{m.icon}</span>
+                      <span style={{ fontFamily: F1, fontSize: 12, fontWeight: 700, color: method === m.id ? T : TD }}>{m.label}</span>
+                      {method === m.id && <span style={{ fontFamily: F2, fontSize: 8, color: m.color, letterSpacing: 1 }}>SELECTED</span>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {method === "gcash" && (
+                <div style={{ animation: "fadeSlideUp 0.25s ease-out", marginBottom: 16 }}>
+                  <div style={{ padding: "12px 14px", background: `#007AFF10`, border: `1px solid #007AFF30`, borderRadius: 10, marginBottom: 16 }}>
+                    <div style={{ fontFamily: F1, fontSize: 11, color: "#007AFF", fontWeight: 700, marginBottom: 2 }}>📱 GCash Instructions</div>
+                    <div style={{ fontFamily: F1, fontSize: 11, color: TD, lineHeight: 1.5 }}>Enter your registered GCash number. You will receive a payment prompt on your GCash app.</div>
+                  </div>
+                  <label style={labelStyle}>GCash Mobile Number</label>
+                  <input style={inputStyle} value={gcashNumber} onChange={e => { setGcashNumber(e.target.value.replace(/\D/g, "").slice(0, 11)); setError(""); }} placeholder="09XXXXXXXXX" maxLength={11} />
+                </div>
+              )}
+
+              {method === "card" && (
+                <div style={{ animation: "fadeSlideUp 0.25s ease-out", display: "flex", flexDirection: "column", gap: 14, marginBottom: 16 }}>
+                  <div>
+                    <label style={labelStyle}>Cardholder Name</label>
+                    <input style={inputStyle} value={cardData.name} onChange={e => { setCardData(p => ({ ...p, name: e.target.value })); setError(""); }} placeholder="Juan Dela Cruz" />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Card Number</label>
+                    <input style={inputStyle} value={cardData.number} onChange={e => { setCardData(p => ({ ...p, number: formatCardNumber(e.target.value) })); setError(""); }} placeholder="1234 5678 9012 3456" maxLength={19} />
+                  </div>
+                  <div style={{ display: "flex", gap: 12 }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={labelStyle}>Expiry Date</label>
+                      <input style={inputStyle} value={cardData.expiry} onChange={e => { setCardData(p => ({ ...p, expiry: formatExpiry(e.target.value) })); setError(""); }} placeholder="MM/YY" maxLength={5} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={labelStyle}>CVV</label>
+                      <input style={{ ...inputStyle, letterSpacing: 4 }} value={cardData.cvv} onChange={e => { setCardData(p => ({ ...p, cvv: e.target.value.replace(/\D/g, "").slice(0, 4) })); setError(""); }} placeholder="•••" maxLength={4} type="password" />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <button
+                onClick={handleProceed}
+                disabled={!method}
+                style={{
+                  width: "100%", padding: 14, marginTop: 8,
+                  background: method ? `linear-gradient(135deg,${PU},${A})` : BD,
+                  border: "none", borderRadius: 10,
+                  color: method ? BG : TD,
+                  fontFamily: F1, fontWeight: 800, fontSize: 15,
+                  cursor: method ? "pointer" : "not-allowed",
+                  letterSpacing: 1, transition: "all 0.3s",
+                }}
+              >
+                {`PAY ${PRICE}`}
+              </button>
+              <p style={{ color: TD, fontSize: 11, fontFamily: F1, textAlign: "center", marginTop: 12, lineHeight: 1.5 }}>
+                🔒 Secured by PayMongo. You will be redirected to complete payment.
+              </p>
+            </div>
+          )}
+
+          {step === 3 && (
+            <div style={{ textAlign: "center", padding: "40px 0", animation: "fadeSlideUp 0.3s ease-out" }}>
+              <div style={{ width: 72, height: 72, borderRadius: "50%", background: `${PU}15`, border: `2px solid ${PU}40`, display: "grid", placeItems: "center", margin: "0 auto 24px", animation: "serverPulse 1s ease-in-out infinite" }}>
+                <span style={{ fontSize: 32 }}>⚡</span>
+              </div>
+              <h2 style={{ fontFamily: F2, fontSize: 20, fontWeight: 800, color: T, margin: "0 0 10px" }}>Processing Payment</h2>
+              <p style={{ color: TD, fontSize: 13, fontFamily: F1, lineHeight: 1.6, marginBottom: 28 }}>
+                {method === "gcash" ? "Connecting to GCash..." : "Contacting payment gateway..."}<br />
+                Please do not close this window.
+              </p>
+              <div style={{ height: 4, background: BD, borderRadius: 2, overflow: "hidden", maxWidth: 260, margin: "0 auto" }}>
+                <div style={{ height: "100%", background: `linear-gradient(90deg,${PU},${A})`, borderRadius: 2, animation: "processingBar 2.2s linear forwards" }} />
+              </div>
+              <style>{`@keyframes processingBar { from { width: 0% } to { width: 100% } }`}</style>
+            </div>
+          )}
+
+          {step === 4 && (
+            <div style={{ textAlign: "center", padding: "20px 0", animation: "fadeSlideUp 0.4s ease-out", width: "100%" }}>
+              <div style={{ width: 88, height: 88, borderRadius: "50%", background: `${OK}12`, border: `2px solid ${OK}40`, display: "grid", placeItems: "center", margin: "0 auto 24px", animation: "successPop 0.6s cubic-bezier(0.16,1,0.3,1) both" }}>
+                <span style={{ fontSize: 44, color: OK }}>✓</span>
+              </div>
+              <h2 style={{ fontFamily: F2, fontSize: 22, fontWeight: 800, color: T, margin: "0 0 8px" }}>Payment Successful!</h2>
+              <p style={{ color: TD, fontSize: 13, fontFamily: F1, lineHeight: 1.7, marginBottom: 8 }}>Thank you for your purchase!</p>
+              <p style={{ color: A, fontSize: 14, fontFamily: F1, fontWeight: 700, marginBottom: 28 }}>{GAME_TITLE}</p>
+              <div style={{ textAlign: "left", padding: "16px 20px", background: BG, borderRadius: 12, border: `1px solid ${BD}`, marginBottom: 24 }}>
+                <div style={{ fontFamily: F2, fontSize: 10, fontWeight: 700, color: A, letterSpacing: 2, marginBottom: 12 }}>WHAT'S NEXT</div>
+                {["Your account is now flagged as Full Game Owner.", "Click the button below to download the full version.", "Log in with your account in-game to unlock all content."].map((s, i) => (
+                  <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: i < 2 ? 8 : 0 }}>
+                    <span style={{ fontFamily: F2, fontSize: 9, fontWeight: 800, color: OK, background: `${OK}15`, padding: "2px 7px", borderRadius: 4, flexShrink: 0 }}>{i + 1}</span>
+                    <span style={{ fontFamily: F1, fontSize: 12, color: TD, lineHeight: 1.5 }}>{s}</span>
+                  </div>
+                ))}
+              </div>
+              <button onClick={() => { onClose(); window.open("https://your-cdn.com/EasyExpress_Full_Setup.exe", "_blank"); }} style={{ width: "100%", padding: 14, background: `linear-gradient(135deg,${OK},${A})`, border: "none", borderRadius: 10, color: BG, fontFamily: F1, fontWeight: 800, fontSize: 15, cursor: "pointer", letterSpacing: 1 }}>
+                ⬇ DOWNLOAD FULL GAME
+              </button>
+              <button onClick={onClose} style={{ width: "100%", marginTop: 10, padding: 12, background: "transparent", border: `1px solid ${BD}`, borderRadius: 10, color: TD, fontFamily: F1, fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
+                Close
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════
+   AUTH MODAL
    ═══════════════════════════════════════════ */
 function AuthModal({ mode, setMode, onClose, addToast, onLoginSuccess, liveNews }) {
   const [otpSent, setOtpSent] = useState(false);
@@ -937,16 +1187,14 @@ function AuthModal({ mode, setMode, onClose, addToast, onLoginSuccess, liveNews 
   const [loading, setLoading] = useState(false);
   const [sessionTicket, setSessionTicket] = useState("");
   const [agreeTerms, setAgreeTerms] = useState(false);
-
   const [showPw, setShowPw] = useState(false);
   const [showConfirmPw, setShowConfirmPw] = useState(false);
   const [showLoginPw, setShowLoginPw] = useState(false);
-
   const handleChange = (field) => (e) => { setFormData((p) => ({ ...p, [field]: e.target.value })); setError(""); };
   const inputStyle = { width: "100%", padding: "12px 14px", background: BG, border: `1px solid ${BD}`, borderRadius: 8, color: T, fontSize: 14, fontFamily: F1, outline: "none", transition: "border-color 0.3s", boxSizing: "border-box" };
   const labelStyle = { display: "block", marginBottom: 6, color: TD, fontSize: 11, fontWeight: 700, letterSpacing: 1.5, fontFamily: F1, textTransform: "uppercase" };
   const pwToggleStyle = (active) => ({ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: active ? A : TD, cursor: "pointer", fontFamily: F1, fontSize: 11, fontWeight: 700, letterSpacing: 0.5, padding: 0, lineHeight: 1 });
-  
+
   const handleSignUp = async () => {
     if (!agreeTerms) { setError("You must agree to the terms"); return; }
     setLoading(true); setError("");
@@ -961,7 +1209,7 @@ function AuthModal({ mode, setMode, onClose, addToast, onLoginSuccess, liveNews 
     } catch (err) { setError(err.message); }
     setLoading(false);
   };
-  
+
   const handleVerifyOTP = async () => {
     const code = otpCode.join("");
     if (code.length < 6) { setError("Enter the full 6-digit code"); return; }
@@ -984,21 +1232,23 @@ function AuthModal({ mode, setMode, onClose, addToast, onLoginSuccess, liveNews 
     } catch (err) { setError(err.message); }
     setLoading(false);
   };
-  
+
   const handleLogin = async () => {
     if (!formData.email.trim() || !formData.password.trim()) { setError("Please fill in all fields"); return; }
     setLoading(true); setError("");
     try {
       const isEmail = formData.email.includes("@");
-      if (isEmail) await loginWithEmail({ email: formData.email, password: formData.password });
-      else await loginWithUsername({ username: formData.email, password: formData.password });
+      const loginResult = isEmail
+        ? await loginWithEmail({ email: formData.email, password: formData.password })
+        : await loginWithUsername({ username: formData.email, password: formData.password });
       setSuccessType("login"); setShowSuccess(true);
       addToast({ type: "welcome", title: "Welcome Back!", message: "Launch the game to continue your shop.", duration: 5000 });
-      if (onLoginSuccess) onLoginSuccess(isEmail ? formData.email : formData.email);
+      localStorage.setItem("ee_session_ticket", loginResult.SessionTicket);
+      if (onLoginSuccess) onLoginSuccess(formData.email, loginResult.SessionTicket, loginResult.PlayFabId);
     } catch (err) { setError(err.message); }
     setLoading(false);
   };
-  
+
   const handleNextStep = () => {
     setError("");
     if (signupStep === 1) {
@@ -1015,14 +1265,12 @@ function AuthModal({ mode, setMode, onClose, addToast, onLoginSuccess, liveNews 
   };
   
   if (showSuccess) return <SuccessView successType={successType} username={formData.username} onClose={onClose} />;
-
   const stepNames = ["Identity", "Credentials", "Confirm"];
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 200, background: `${BG}dd`, backdropFilter: "blur(24px)", display: "grid", placeItems: "center", padding: 20, animation: "fadeIn 0.3s ease-out" }} onClick={onClose}>
       <div className="ee-auth-modal" style={{ background: CARD, border: `1px solid ${BD}`, borderRadius: 20, width: "100%", maxWidth: 700, position: "relative", overflow: "hidden", animation: "modalSlideUp 0.4s cubic-bezier(0.16,1,0.3,1)", display: "flex", minHeight: 520 }} onClick={(e) => e.stopPropagation()}>
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg,${A},${A2})`, zIndex: 1 }} />
         <AuthNewsSidebar liveNews={liveNews} />
-        
         <div style={{ flex: 1, padding: "36px 32px", position: "relative", overflowY: "auto" }}>
           <button onClick={onClose} style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", color: TD, fontSize: 18, cursor: "pointer", lineHeight: 1, zIndex: 2 }}>{"✕"}</button>
           {error && (
@@ -1030,7 +1278,6 @@ function AuthModal({ mode, setMode, onClose, addToast, onLoginSuccess, liveNews 
               <span style={{ fontSize: 14 }}>{"⚠"}</span> {error}
             </div>
           )}
-
           {otpSent ? (
             <OtpView formData={formData} otpCode={otpCode} setOtpCode={setOtpCode} otpRefs={otpRefs} handleVerifyOTP={handleVerifyOTP} handleResendOTP={handleResendOTP} loading={loading} />
           ) : mode === "signup" ? (
@@ -1051,7 +1298,6 @@ function AuthModal({ mode, setMode, onClose, addToast, onLoginSuccess, liveNews 
                   );
                 })}
               </div>
-
               {signupStep === 1 && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 16, animation: "fadeSlideUp 0.3s ease-out" }}>
                   <div className="ee-form-row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -1062,7 +1308,6 @@ function AuthModal({ mode, setMode, onClose, addToast, onLoginSuccess, liveNews 
                   <button onClick={handleNextStep} style={{ width: "100%", padding: 14, marginTop: 8, background: `linear-gradient(135deg,${A},#00b8d4)`, border: "none", borderRadius: 10, color: BG, fontFamily: F1, fontWeight: 800, fontSize: 14, cursor: "pointer", letterSpacing: 1 }}>{"NEXT →"}</button>
                 </div>
               )}
-
               {signupStep === 2 && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 16, animation: "fadeSlideUp 0.3s ease-out" }}>
                   <div><label style={labelStyle}>Email Address</label><input type="email" style={inputStyle} value={formData.email} onChange={handleChange("email")} placeholder="you@email.com" /><p style={{ fontFamily: F1, fontSize: 10, color: TD, marginTop: 6 }}>We will send a verification code to this email.</p></div>
@@ -1074,7 +1319,6 @@ function AuthModal({ mode, setMode, onClose, addToast, onLoginSuccess, liveNews 
                   </div>
                 </div>
               )}
-
               {signupStep === 3 && (
                 <div style={{ animation: "fadeSlideUp 0.3s ease-out" }}>
                   <div style={{ background: BG, borderRadius: 12, padding: "16px 20px", marginBottom: 20, border: `1px solid ${BD}` }}>
@@ -1099,7 +1343,6 @@ function AuthModal({ mode, setMode, onClose, addToast, onLoginSuccess, liveNews 
               <p style={{ color: TD, fontSize: 12, marginTop: 20, textAlign: "center", fontFamily: F1 }}>{"Already have an account? "}<button onClick={() => { setMode("login"); setSignupStep(1); setError(""); }} style={{ background: "none", border: "none", color: A, cursor: "pointer", fontFamily: "inherit", fontSize: 12, fontWeight: 700 }}>Log In</button></p>
             </div>
           ) : (
-            /* ═══ LOGIN VIEW ═══ */
             <div>
               <h2 style={{ fontFamily: F2, fontSize: 20, fontWeight: 800, color: T, margin: "0 0 4px" }}>Welcome Back</h2>
               <p style={{ color: TD, fontSize: 12, fontFamily: F1, margin: "0 0 24px" }}>Log in to access your shop and continue your progress.</p>
@@ -1112,12 +1355,7 @@ function AuthModal({ mode, setMode, onClose, addToast, onLoginSuccess, liveNews 
                     <button type="button" onClick={() => setShowLoginPw(!showLoginPw)} style={pwToggleStyle(showLoginPw)}>{showLoginPw ? "HIDE" : "SHOW"}</button>
                   </div>
                   <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 6 }}>
-                    {/* ═══ CHANGED: Navigate to reset password page instead of inline modal ═══ */}
-                    <a
-                      href="#/reset-password"
-                      onClick={() => onClose()}
-                      style={{ background: "none", border: "none", color: A, cursor: "pointer", fontFamily: F1, fontSize: 11, fontWeight: 600, textDecoration: "none" }}
-                    >
+                    <a href="#/reset-password" onClick={() => onClose()} style={{ background: "none", border: "none", color: A, cursor: "pointer", fontFamily: F1, fontSize: 11, fontWeight: 600, textDecoration: "none" }}>
                       Forgot Password?
                     </a>
                   </div>
@@ -1138,11 +1376,8 @@ function AuthModal({ mode, setMode, onClose, addToast, onLoginSuccess, liveNews 
 }
 
 /* ═══════════════════════════════════════════════════════════
-   ADMIN DASHBOARD (unchanged — abbreviated import)
+   ADMIN DASHBOARD
    ═══════════════════════════════════════════════════════════ */
-// Admin Dashboard code is identical to original — kept inline for completeness
-// (The full AdminDashboard component is unchanged from your original file)
-
 function AdminDashboard({ addToast, onClose, adminKey, setAdminKey, authed, setAuthed, liveNews, onNewsUpdated }) {
   const [activeTab, setActiveTab] = useState("players");
   const [searchQuery, setSearchQuery] = useState("");
@@ -1187,19 +1422,48 @@ function AdminDashboard({ addToast, onClose, adminKey, setAdminKey, authed, setA
     );
   }
 
-  const searchPlayer = async () => { setSearchErr(""); setSearchResult(null); setEditMsg(""); setBanMsg(""); setPlayerStats(null); try { const res = await pfAdmin("GetUserAccountInfo", { Email: searchQuery.includes("@") ? searchQuery : undefined, PlayFabId: !searchQuery.includes("@") ? searchQuery : undefined }, adminKey); const info = res.UserInfo; const dataRes = await pfServer("GetUserData", { PlayFabId: info.PlayFabId }, adminKey); const userData = {}; Object.entries(dataRes.Data || {}).forEach(([k, v]) => { userData[k] = v.Value; }); try { const statsRes = await pfServer("GetPlayerStatistics", { PlayFabId: info.PlayFabId, StatisticNames: ["Gold"] }, adminKey); const statsMap = {}; (statsRes.Statistics || []).forEach(s => { statsMap[s.StatisticName] = s.Value; }); setPlayerStats(statsMap); } catch (e) { setPlayerStats(null); } setSearchResult({ id: info.PlayFabId, email: info.PrivateInfo?.Email || "N/A", displayName: info.TitleInfo?.DisplayName || "N/A", created: info.TitleInfo?.Created || "", banned: info.TitleInfo?.isBanned || false }); setEditData(userData); addToast({ type: "success", title: "Player Found", message: `Loaded data for ${info.PlayFabId}` }); } catch (e) { setSearchErr(e.message); } };
-  const updatePlayerData = async () => { if (!searchResult) return; setEditMsg(""); try { await pfAdmin("UpdateUserData", { PlayFabId: searchResult.id, Data: editData }, adminKey); setEditMsg("✅ Player data updated!"); addToast({ type: "success", title: "Data Saved", message: `Updated data for ${searchResult.id}` }); } catch (e) { setEditMsg("❌ " + e.message); } };
-  const banPlayer = async () => { if (!searchResult) return; setBanMsg(""); try { const banPayload = { PlayFabId: searchResult.id, Reason: banReason || "Admin action" }; if (banDuration !== "permanent") banPayload.DurationInHours = parseInt(banDuration, 10); await pfAdmin("BanUsers", { Bans: [banPayload] }, adminKey); const durationLabel = BAN_DURATIONS.find(d => d.value === banDuration)?.label || banDuration; setBanMsg(`✅ Player banned (${durationLabel}).`); setSearchResult(prev => ({ ...prev, banned: true })); addToast({ type: "info", title: "Player Banned", message: `${searchResult.id} — ${durationLabel}` }); } catch (e) { setBanMsg("❌ " + e.message); } };
-  const unbanPlayer = async () => { if (!searchResult) return; setBanMsg(""); try { await pfAdmin("RevokeAllBansForUser", { PlayFabId: searchResult.id }, adminKey); setBanMsg("✅ All bans revoked."); setSearchResult(prev => ({ ...prev, banned: false })); addToast({ type: "success", title: "Player Unbanned", message: searchResult.id + " has been unbanned." }); } catch (e) { setBanMsg("❌ " + e.message); } };
-  const addNewsItem = async () => { if (!newsTitle.trim() || !newsBody.trim()) { setNewsMsg("Fill in title and body."); return; } setNewsMsg(""); const newItem = { id: Date.now(), type: newsType, date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }), title: newsTitle, desc: newsBody, color: newsType === "UPDATE" ? OK : newsType === "EVENT" ? WN : newsType === "PATCH" ? A : A2 }; const updated = [newItem, ...displayNews]; try { await pfAdmin("SetTitleData", { Key: "GameNews", Value: JSON.stringify(updated) }, adminKey); onNewsUpdated(updated); setNewsTitle(""); setNewsBody(""); setNewsMsg("✅ News published!"); addToast({ type: "success", title: "News Published", message: newsTitle }); } catch (e) { setNewsMsg("❌ " + e.message); } };
-  const deleteNewsItem = async (id) => { const updated = displayNews.filter(n => n.id !== id); try { await pfAdmin("SetTitleData", { Key: "GameNews", Value: JSON.stringify(updated) }, adminKey); onNewsUpdated(updated); addToast({ type: "info", title: "News Deleted", message: "Item removed." }); } catch (e) { setNewsMsg("❌ " + e.message); } };
-  const fetchLeaderboard = async () => { if (!lbStat) { setLbErr("Please enter a statistic name."); return; } setLbErr(""); setLbData([]); try { const res = await pfServer("GetLeaderboard", { StatisticName: lbStat, StartPosition: 0, MaxResultsCount: 100 }, adminKey); setLbData(res.Leaderboard || []); addToast({ type: "success", title: "Leaderboard Loaded", message: `Fetched top players for ${lbStat}` }); } catch (e) { setLbErr(e.message); } };
-  const fetchLogs = async () => { setLogEntries([{ time: new Date().toLocaleString(), event: "System", msg: "PlayFab event logging requires Insights. Configure PlayStream rules in your dashboard." }, { time: "", event: "Tip", msg: "Use Admin/GetUserAccountInfo or Admin/GetPlayerStatistics for per-player auditing." }]); addToast({ type: "info", title: "Logs", message: "Event system info loaded." }); };
-  const loadRevenue = async () => { try { const res = await pfAdmin("GetTitleData", { Keys: ["GameRevenue"] }, adminKey); if (res.Data?.GameRevenue) setGameRevenue(JSON.parse(res.Data.GameRevenue)); else setGameRevenue({ total: "0", donations: "0", note: "No revenue data yet." }); setRevenueLoaded(true); } catch (e) { setRevenueMsg("❌ " + e.message); setGameRevenue({ total: "0", donations: "0", note: "" }); setRevenueLoaded(true); } };
-  const saveRevenue = async () => { setRevenueMsg(""); try { await pfAdmin("SetTitleData", { Key: "GameRevenue", Value: JSON.stringify(gameRevenue) }, adminKey); setRevenueMsg("✅ Revenue data saved!"); addToast({ type: "success", title: "Revenue Updated", message: "Game revenue data saved." }); } catch (e) { setRevenueMsg("❌ " + e.message); } };
+  const searchPlayer = async () => { setSearchErr(""); setSearchResult(null); setEditMsg(""); setBanMsg(""); setPlayerStats(null);
+    try { const res = await pfAdmin("GetUserAccountInfo", { Email: searchQuery.includes("@") ? searchQuery : undefined, PlayFabId: !searchQuery.includes("@") ? searchQuery : undefined }, adminKey);
+    const info = res.UserInfo; const dataRes = await pfServer("GetUserData", { PlayFabId: info.PlayFabId }, adminKey); const userData = {};
+    Object.entries(dataRes.Data || {}).forEach(([k, v]) => { userData[k] = v.Value; });
+    try { const statsRes = await pfServer("GetPlayerStatistics", { PlayFabId: info.PlayFabId, StatisticNames: ["Gold"] }, adminKey); const statsMap = {};
+    (statsRes.Statistics || []).forEach(s => { statsMap[s.StatisticName] = s.Value; }); setPlayerStats(statsMap); } catch (e) { setPlayerStats(null);
+    } setSearchResult({ id: info.PlayFabId, email: info.PrivateInfo?.Email || "N/A", displayName: info.TitleInfo?.DisplayName || "N/A", created: info.TitleInfo?.Created || "", banned: info.TitleInfo?.isBanned || false });
+    setEditData(userData); addToast({ type: "success", title: "Player Found", message: `Loaded data for ${info.PlayFabId}` }); } catch (e) { setSearchErr(e.message); } };
+  const updatePlayerData = async () => { if (!searchResult) return; setEditMsg("");
+    try { await pfAdmin("UpdateUserData", { PlayFabId: searchResult.id, Data: editData }, adminKey); setEditMsg("✅ Player data updated!");
+    addToast({ type: "success", title: "Data Saved", message: `Updated data for ${searchResult.id}` }); } catch (e) { setEditMsg("❌ " + e.message); } };
+  const banPlayer = async () => { if (!searchResult) return; setBanMsg("");
+    try { const banPayload = { PlayFabId: searchResult.id, Reason: banReason || "Admin action" };
+    if (banDuration !== "permanent") banPayload.DurationInHours = parseInt(banDuration, 10); await pfAdmin("BanUsers", { Bans: [banPayload] }, adminKey);
+    const durationLabel = BAN_DURATIONS.find(d => d.value === banDuration)?.label || banDuration; setBanMsg(`✅ Player banned (${durationLabel}).`);
+    setSearchResult(prev => ({ ...prev, banned: true })); addToast({ type: "info", title: "Player Banned", message: `${searchResult.id} — ${durationLabel}` });
+    } catch (e) { setBanMsg("❌ " + e.message); } };
+  const unbanPlayer = async () => { if (!searchResult) return; setBanMsg("");
+    try { await pfAdmin("RevokeAllBansForUser", { PlayFabId: searchResult.id }, adminKey); setBanMsg("✅ All bans revoked.");
+    setSearchResult(prev => ({ ...prev, banned: false })); addToast({ type: "success", title: "Player Unbanned", message: searchResult.id + " has been unbanned." });
+    } catch (e) { setBanMsg("❌ " + e.message); } };
+  const addNewsItem = async () => { if (!newsTitle.trim() || !newsBody.trim()) { setNewsMsg("Fill in title and body."); return; } setNewsMsg("");
+    const newItem = { id: Date.now(), type: newsType, date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }), title: newsTitle, desc: newsBody, color: newsType === "UPDATE" ? OK : newsType === "EVENT" ? WN : newsType === "PATCH" ? A : A2 };
+    const updated = [newItem, ...displayNews];
+    try { await pfAdmin("SetTitleData", { Key: "GameNews", Value: JSON.stringify(updated) }, adminKey); onNewsUpdated(updated); setNewsTitle(""); setNewsBody("");
+    setNewsMsg("✅ News published!"); addToast({ type: "success", title: "News Published", message: newsTitle }); } catch (e) { setNewsMsg("❌ " + e.message); } };
+  const deleteNewsItem = async (id) => { const updated = displayNews.filter(n => n.id !== id);
+    try { await pfAdmin("SetTitleData", { Key: "GameNews", Value: JSON.stringify(updated) }, adminKey); onNewsUpdated(updated);
+    addToast({ type: "info", title: "News Deleted", message: "Item removed." }); } catch (e) { setNewsMsg("❌ " + e.message); } };
+  const fetchLeaderboard = async () => { if (!lbStat) { setLbErr("Please enter a statistic name."); return; } setLbErr(""); setLbData([]);
+    try { const res = await pfServer("GetLeaderboard", { StatisticName: lbStat, StartPosition: 0, MaxResultsCount: 100 }, adminKey); setLbData(res.Leaderboard || []);
+    addToast({ type: "success", title: "Leaderboard Loaded", message: `Fetched top players for ${lbStat}` }); } catch (e) { setLbErr(e.message); } };
+  const fetchLogs = async () => { setLogEntries([{ time: new Date().toLocaleString(), event: "System", msg: "PlayFab event logging requires Insights. Configure PlayStream rules in your dashboard." }, { time: "", event: "Tip", msg: "Use Admin/GetUserAccountInfo or Admin/GetPlayerStatistics for per-player auditing." }]);
+    addToast({ type: "info", title: "Logs", message: "Event system info loaded." }); };
+  const loadRevenue = async () => { try { const res = await pfAdmin("GetTitleData", { Keys: ["GameRevenue"] }, adminKey);
+    if (res.Data?.GameRevenue) setGameRevenue(JSON.parse(res.Data.GameRevenue)); else setGameRevenue({ total: "0", donations: "0", note: "No revenue data yet." }); setRevenueLoaded(true);
+    } catch (e) { setRevenueMsg("❌ " + e.message); setGameRevenue({ total: "0", donations: "0", note: "" }); setRevenueLoaded(true); } };
+  const saveRevenue = async () => { setRevenueMsg(""); try { await pfAdmin("SetTitleData", { Key: "GameRevenue", Value: JSON.stringify(gameRevenue) }, adminKey);
+    setRevenueMsg("✅ Revenue data saved!"); addToast({ type: "success", title: "Revenue Updated", message: "Game revenue data saved." });
+    } catch (e) { setRevenueMsg("❌ " + e.message); } };
 
   const tabs = [{ id: "players", label: "👥 Players" },{ id: "news", label: "📰 News Editor" },{ id: "leaderboard", label: "🏆 Leaderboards" },{ id: "revenue", label: "💵 Revenue" },{ id: "logs", label: "📋 Event Logs" }];
-
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 200, background: `${BG}f5`, backdropFilter: "blur(8px)", overflowY: "auto", animation: "fadeIn 0.3s ease-out" }}>
       <div style={{ position: "sticky", top: 0, zIndex: 10, background: `${CARD}f0`, backdropFilter: "blur(16px)", borderBottom: `1px solid ${BD}`, padding: "0 clamp(1rem,4vw,3rem)", height: 56, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -1214,151 +1478,150 @@ function AdminDashboard({ addToast, onClose, adminKey, setAdminKey, authed, setA
           {tabs.map(t => (<button key={t.id} className="ee-tab-btn" onClick={() => setActiveTab(t.id)} style={{ padding: "10px 20px", borderRadius: 8, fontFamily: F1, fontWeight: 700, fontSize: 12, cursor: "pointer", letterSpacing: 1, transition: "all 0.3s", background: activeTab === t.id ? `${A}15` : CARD, border: `1px solid ${activeTab === t.id ? A + "40" : BD}`, color: activeTab === t.id ? A : TD }}>{t.label}</button>))}
         </div>
         <div style={{ background: CARD, border: `1px solid ${BD}`, borderRadius: 16, padding: "28px 28px", position: "relative", overflow: "hidden" }}>
-  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg,${A},transparent)` }} />
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg,${A},transparent)` }} />
 
-  {activeTab === "players" && (
-    <div style={{ animation: "fadeSlideUp 0.3s ease-out" }}>
-      <h3 style={{ fontFamily: F2, fontSize: 16, fontWeight: 700, color: T, margin: "0 0 20px" }}>Player Lookup</h3>
-      <div className="ee-admin-search" style={{ display: "flex", gap: 10, marginBottom: 20 }}>
-        <input style={{ ...inputStyle, flex: 1 }} value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Email address or PlayFab ID" onKeyDown={e => { if (e.key === "Enter") searchPlayer(); }} />
-        <button onClick={searchPlayer} style={{ padding: "12px 24px", background: `linear-gradient(135deg,${A},#00b8d4)`, border: "none", borderRadius: 8, color: BG, fontFamily: F1, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>SEARCH</button>
-      </div>
-      {searchErr && <div style={{ color: A2, fontFamily: F1, fontSize: 13, marginBottom: 16, padding: "10px 14px", background: `${A2}0a`, borderRadius: 8, border: `1px solid ${A2}25` }}>❌ {searchErr}</div>}
-      {searchResult && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          <div style={{ background: BG, borderRadius: 12, padding: "20px 24px", border: `1px solid ${BD}` }}>
-            <div style={{ fontFamily: F2, fontSize: 11, fontWeight: 700, color: A, letterSpacing: 2, marginBottom: 14 }}>ACCOUNT INFO</div>
-            {[{ l: "PlayFab ID", v: searchResult.id }, { l: "Email", v: searchResult.email }, { l: "Display Name", v: searchResult.displayName }, { l: "Status", v: searchResult.banned ? "🚫 BANNED" : "✅ Active" }].map((r, i) => (
-              <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: i < 3 ? `1px solid ${BD}` : "none" }}>
-                <span style={{ fontFamily: F1, fontSize: 12, color: TD, fontWeight: 600 }}>{r.l}</span>
-                <span style={{ fontFamily: F1, fontSize: 13, color: r.l === "Status" ? (searchResult.banned ? A2 : OK) : T, fontWeight: 600 }}>{r.v}</span>
+          {activeTab === "players" && (
+            <div style={{ animation: "fadeSlideUp 0.3s ease-out" }}>
+              <h3 style={{ fontFamily: F2, fontSize: 16, fontWeight: 700, color: T, margin: "0 0 20px" }}>Player Lookup</h3>
+              <div className="ee-admin-search" style={{ display: "flex", gap: 10, marginBottom: 20 }}>
+                <input style={{ ...inputStyle, flex: 1 }} value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Email address or PlayFab ID" onKeyDown={e => { if (e.key === "Enter") searchPlayer(); }} />
+                <button onClick={searchPlayer} style={{ padding: "12px 24px", background: `linear-gradient(135deg,${A},#00b8d4)`, border: "none", borderRadius: 8, color: BG, fontFamily: F1, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>SEARCH</button>
               </div>
-            ))}
-            {playerStats && (
-              <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${BD}` }}>
-                <span style={{ fontFamily: F1, fontSize: 12, color: TD, fontWeight: 600 }}>Gold</span>
-                <span style={{ fontFamily: F1, fontSize: 13, color: WN, fontWeight: 700, float: "right" }}>{(playerStats.Gold || 0).toLocaleString()} G</span>
-              </div>
-            )}
-          </div>
-          <div style={{ background: BG, borderRadius: 12, padding: "20px 24px", border: `1px solid ${BD}` }}>
-            <div style={{ fontFamily: F2, fontSize: 11, fontWeight: 700, color: A, letterSpacing: 2, marginBottom: 14 }}>PLAYER DATA</div>
-            {Object.entries(editData).map(([k, v]) => (
-              <div key={k} style={{ marginBottom: 10 }}>
-                <label style={labelStyle}>{k}</label>
-                <input style={inputStyle} value={v} onChange={e => setEditData(prev => ({ ...prev, [k]: e.target.value }))} />
-              </div>
-            ))}
-            {editMsg && <div style={{ fontFamily: F1, fontSize: 13, color: editMsg.startsWith("✅") ? OK : A2, marginBottom: 10 }}>{editMsg}</div>}
-            <button onClick={updatePlayerData} style={{ padding: "10px 20px", background: `linear-gradient(135deg,${A},#00b8d4)`, border: "none", borderRadius: 8, color: BG, fontFamily: F1, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>SAVE CHANGES</button>
-          </div>
-          <div style={{ background: BG, borderRadius: 12, padding: "20px 24px", border: `1px solid ${A2}20` }}>
-            <div style={{ fontFamily: F2, fontSize: 11, fontWeight: 700, color: A2, letterSpacing: 2, marginBottom: 14 }}>BAN PLAYER</div>
-            <div className="ee-admin-search" style={{ display: "flex", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
-              <input style={{ ...inputStyle, flex: 1 }} value={banReason} onChange={e => setBanReason(e.target.value)} placeholder="Reason for ban..." />
-              <select style={{ ...inputStyle, width: "auto", cursor: "pointer" }} value={banDuration} onChange={e => setBanDuration(e.target.value)}>
-                {BAN_DURATIONS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
-              </select>
-            </div>
-            {banMsg && <div style={{ fontFamily: F1, fontSize: 13, color: banMsg.startsWith("✅") ? OK : A2, marginBottom: 10 }}>{banMsg}</div>}
-            <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={banPlayer} style={{ padding: "10px 20px", background: `linear-gradient(135deg,${A2},${WN})`, border: "none", borderRadius: 8, color: BG, fontFamily: F1, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>BAN PLAYER</button>
-              <button onClick={unbanPlayer} style={{ padding: "10px 20px", background: "transparent", border: `1px solid ${OK}40`, color: OK, borderRadius: 8, fontFamily: F1, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>UNBAN PLAYER</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  )}
-
-  {activeTab === "news" && (
-    <div style={{ animation: "fadeSlideUp 0.3s ease-out" }}>
-      <h3 style={{ fontFamily: F2, fontSize: 16, fontWeight: 700, color: T, margin: "0 0 20px" }}>News Editor</h3>
-      <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 24 }}>
-        <div className="ee-admin-search" style={{ display: "flex", gap: 10 }}>
-          <div style={{ flex: 1 }}><label style={labelStyle}>Title</label><input style={inputStyle} value={newsTitle} onChange={e => setNewsTitle(e.target.value)} placeholder="News headline..." /></div>
-          <div><label style={labelStyle}>Type</label><select style={{ ...inputStyle, cursor: "pointer" }} value={newsType} onChange={e => setNewsType(e.target.value)}><option value="UPDATE">UPDATE</option><option value="EVENT">EVENT</option><option value="PATCH">PATCH</option><option value="NEW">NEW</option></select></div>
-        </div>
-        <div><label style={labelStyle}>Body</label><textarea style={{ ...inputStyle, minHeight: 80, resize: "vertical" }} value={newsBody} onChange={e => setNewsBody(e.target.value)} placeholder="News content..." /></div>
-        {newsMsg && <div style={{ fontFamily: F1, fontSize: 13, color: newsMsg.startsWith("✅") ? OK : A2 }}>{newsMsg}</div>}
-        <button onClick={addNewsItem} style={{ alignSelf: "flex-start", padding: "10px 24px", background: `linear-gradient(135deg,${A},#00b8d4)`, border: "none", borderRadius: 8, color: BG, fontFamily: F1, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>PUBLISH NEWS</button>
-      </div>
-      <div style={{ fontFamily: F2, fontSize: 11, fontWeight: 700, color: TD, letterSpacing: 2, marginBottom: 12 }}>EXISTING NEWS</div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {displayNews.map(n => (
-          <div key={n.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", background: BG, borderRadius: 8, border: `1px solid ${BD}` }}>
-            <div>
-              <span style={{ fontFamily: F2, fontSize: 10, color: n.color, marginRight: 8 }}>{n.type}</span>
-              <span style={{ fontFamily: F1, fontSize: 13, color: T }}>{n.title}</span>
-            </div>
-            <button onClick={() => deleteNewsItem(n.id)} style={{ background: `${A2}15`, border: `1px solid ${A2}30`, color: A2, padding: "4px 12px", borderRadius: 6, fontFamily: F1, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>DELETE</button>
-          </div>
-        ))}
-      </div>
-    </div>
-  )}
-
-  {activeTab === "leaderboard" && (
-    <div style={{ animation: "fadeSlideUp 0.3s ease-out" }}>
-      <h3 style={{ fontFamily: F2, fontSize: 16, fontWeight: 700, color: T, margin: "0 0 20px" }}>Leaderboard Viewer</h3>
-      <div className="ee-admin-search" style={{ display: "flex", gap: 10, marginBottom: 20 }}>
-        <input style={{ ...inputStyle, flex: 1 }} value={lbStat} onChange={e => setLbStat(e.target.value)} placeholder="Statistic name (e.g. Gold)" />
-        <button onClick={fetchLeaderboard} style={{ padding: "12px 24px", background: `linear-gradient(135deg,${A},#00b8d4)`, border: "none", borderRadius: 8, color: BG, fontFamily: F1, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>LOAD</button>
-      </div>
-      {lbErr && <div style={{ color: A2, fontFamily: F1, fontSize: 13, marginBottom: 16 }}>❌ {lbErr}</div>}
-      {lbData.length > 0 && (
-        <div style={{ background: BG, borderRadius: 12, overflow: "hidden", border: `1px solid ${BD}` }}>
-          {lbData.map((p, i) => (
-            <div key={p.PlayFabId} style={{ display: "flex", padding: "14px 20px", borderBottom: i < lbData.length - 1 ? `1px solid ${BD}` : "none", alignItems: "center", gap: 16 }}>
-              <span style={{ fontFamily: F2, fontSize: 14, fontWeight: 800, color: p.Position < 3 ? A : TD, minWidth: 32 }}>{p.Position + 1}</span>
-              <span style={{ fontFamily: F1, fontSize: 14, color: T, flex: 1 }}>{p.DisplayName || "Anonymous"}</span>
-              <span style={{ fontFamily: F1, fontSize: 12, color: TD, flex: 1 }}>{p.PlayFabId}</span>
-              <span style={{ fontFamily: F2, fontSize: 14, color: WN, fontWeight: 700 }}>{p.StatValue.toLocaleString()} G</span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )}
-
-  {activeTab === "revenue" && (
-    <div style={{ animation: "fadeSlideUp 0.3s ease-out" }}>
-      <h3 style={{ fontFamily: F2, fontSize: 16, fontWeight: 700, color: T, margin: "0 0 20px" }}>Revenue Tracker</h3>
-      {!revenueLoaded ? (
-        <button onClick={loadRevenue} style={{ padding: "12px 24px", background: `linear-gradient(135deg,${A},#00b8d4)`, border: "none", borderRadius: 8, color: BG, fontFamily: F1, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>LOAD REVENUE DATA</button>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          {gameRevenue && Object.entries(gameRevenue).map(([k, v]) => (
-            <div key={k}><label style={labelStyle}>{k}</label><input style={inputStyle} value={v} onChange={e => setGameRevenue(prev => ({ ...prev, [k]: e.target.value }))} /></div>
-          ))}
-          {revenueMsg && <div style={{ fontFamily: F1, fontSize: 13, color: revenueMsg.startsWith("✅") ? OK : A2 }}>{revenueMsg}</div>}
-          <button onClick={saveRevenue} style={{ alignSelf: "flex-start", padding: "10px 24px", background: `linear-gradient(135deg,${OK},${A})`, border: "none", borderRadius: 8, color: BG, fontFamily: F1, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>SAVE</button>
-        </div>
-      )}
-    </div>
-  )}
-
-  {activeTab === "logs" && (
-          <div style={{ animation: "fadeSlideUp 0.3s ease-out" }}>
-            <h3 style={{ fontFamily: F2, fontSize: 16, fontWeight: 700, color: T, margin: "0 0 20px" }}>Event Logs</h3>
-            <button onClick={fetchLogs} style={{ padding: "10px 24px", background: `linear-gradient(135deg,${A},#00b8d4)`, border: "none", borderRadius: 8, color: BG, fontFamily: F1, fontWeight: 700, fontSize: 13, cursor: "pointer", marginBottom: 20 }}>LOAD LOGS</button>
-            {logEntries.length > 0 && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {logEntries.map((log, i) => (
-                  <div key={i} style={{ padding: "12px 16px", background: BG, borderRadius: 8, border: `1px solid ${BD}` }}>
-                    <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 4 }}>
-                      <span style={{ fontFamily: F2, fontSize: 10, color: A, fontWeight: 700 }}>{log.event}</span>
-                      {log.time && <span style={{ fontFamily: F1, fontSize: 10, color: TD }}>{log.time}</span>}
+              {searchErr && <div style={{ color: A2, fontFamily: F1, fontSize: 13, marginBottom: 16, padding: "10px 14px", background: `${A2}0a`, borderRadius: 8, border: `1px solid ${A2}25` }}>❌ {searchErr}</div>}
+              {searchResult && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                  <div style={{ background: BG, borderRadius: 12, padding: "20px 24px", border: `1px solid ${BD}` }}>
+                    <div style={{ fontFamily: F2, fontSize: 11, fontWeight: 700, color: A, letterSpacing: 2, marginBottom: 14 }}>ACCOUNT INFO</div>
+                    {[{ l: "PlayFab ID", v: searchResult.id }, { l: "Email", v: searchResult.email }, { l: "Display Name", v: searchResult.displayName }, { l: "Status", v: searchResult.banned ? "🚫 BANNED" : "✅ Active" }].map((r, i) => (
+                      <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: i < 3 ? `1px solid ${BD}` : "none" }}>
+                        <span style={{ fontFamily: F1, fontSize: 12, color: TD, fontWeight: 600 }}>{r.l}</span>
+                        <span style={{ fontFamily: F1, fontSize: 13, color: r.l === "Status" ? (searchResult.banned ? A2 : OK) : T, fontWeight: 600 }}>{r.v}</span>
+                      </div>
+                    ))}
+                    {playerStats && (
+                      <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${BD}` }}>
+                        <span style={{ fontFamily: F1, fontSize: 12, color: TD, fontWeight: 600 }}>Gold</span>
+                        <span style={{ fontFamily: F1, fontSize: 13, color: WN, fontWeight: 700, float: "right" }}>{(playerStats.Gold || 0).toLocaleString()} G</span>
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ background: BG, borderRadius: 12, padding: "20px 24px", border: `1px solid ${BD}` }}>
+                    <div style={{ fontFamily: F2, fontSize: 11, fontWeight: 700, color: A, letterSpacing: 2, marginBottom: 14 }}>PLAYER DATA</div>
+                    {Object.entries(editData).map(([k, v]) => (
+                      <div key={k} style={{ marginBottom: 10 }}>
+                        <label style={labelStyle}>{k}</label>
+                        <input style={inputStyle} value={v} onChange={e => setEditData(prev => ({ ...prev, [k]: e.target.value }))} />
+                      </div>
+                    ))}
+                    {editMsg && <div style={{ fontFamily: F1, fontSize: 13, color: editMsg.startsWith("✅") ? OK : A2, marginBottom: 10 }}>{editMsg}</div>}
+                    <button onClick={updatePlayerData} style={{ padding: "10px 20px", background: `linear-gradient(135deg,${A},#00b8d4)`, border: "none", borderRadius: 8, color: BG, fontFamily: F1, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>SAVE CHANGES</button>
+                  </div>
+                  <div style={{ background: BG, borderRadius: 12, padding: "20px 24px", border: `1px solid ${A2}20` }}>
+                    <div style={{ fontFamily: F2, fontSize: 11, fontWeight: 700, color: A2, letterSpacing: 2, marginBottom: 14 }}>BAN PLAYER</div>
+                    <div className="ee-admin-search" style={{ display: "flex", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
+                      <input style={{ ...inputStyle, flex: 1 }} value={banReason} onChange={e => setBanReason(e.target.value)} placeholder="Reason for ban..." />
+                      <select style={{ ...inputStyle, width: "auto", cursor: "pointer" }} value={banDuration} onChange={e => setBanDuration(e.target.value)}>
+                        {BAN_DURATIONS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
+                      </select>
                     </div>
-                    <p style={{ fontFamily: F1, fontSize: 12, color: TD, margin: 0, lineHeight: 1.5 }}>{log.msg}</p>
+                    {banMsg && <div style={{ fontFamily: F1, fontSize: 13, color: banMsg.startsWith("✅") ? OK : A2, marginBottom: 10 }}>{banMsg}</div>}
+                    <div style={{ display: "flex", gap: 10 }}>
+                      <button onClick={banPlayer} style={{ padding: "10px 20px", background: `linear-gradient(135deg,${A2},${WN})`, border: "none", borderRadius: 8, color: BG, fontFamily: F1, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>BAN PLAYER</button>
+                      <button onClick={unbanPlayer} style={{ padding: "10px 20px", background: "transparent", border: `1px solid ${OK}40`, color: OK, borderRadius: 8, fontFamily: F1, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>UNBAN PLAYER</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === "news" && (
+            <div style={{ animation: "fadeSlideUp 0.3s ease-out" }}>
+              <h3 style={{ fontFamily: F2, fontSize: 16, fontWeight: 700, color: T, margin: "0 0 20px" }}>News Editor</h3>
+              <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 24 }}>
+                <div className="ee-admin-search" style={{ display: "flex", gap: 10 }}>
+                  <div style={{ flex: 1 }}><label style={labelStyle}>Title</label><input style={inputStyle} value={newsTitle} onChange={e => setNewsTitle(e.target.value)} placeholder="News headline..." /></div>
+                  <div><label style={labelStyle}>Type</label><select style={{ ...inputStyle, cursor: "pointer" }} value={newsType} onChange={e => setNewsType(e.target.value)}><option value="UPDATE">UPDATE</option><option value="EVENT">EVENT</option><option value="PATCH">PATCH</option><option value="NEW">NEW</option></select></div>
+                </div>
+                <div><label style={labelStyle}>Body</label><textarea style={{ ...inputStyle, minHeight: 80, resize: "vertical" }} value={newsBody} onChange={e => setNewsBody(e.target.value)} placeholder="News content..." /></div>
+                {newsMsg && <div style={{ fontFamily: F1, fontSize: 13, color: newsMsg.startsWith("✅") ? OK : A2 }}>{newsMsg}</div>}
+                <button onClick={addNewsItem} style={{ alignSelf: "flex-start", padding: "10px 24px", background: `linear-gradient(135deg,${A},#00b8d4)`, border: "none", borderRadius: 8, color: BG, fontFamily: F1, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>PUBLISH NEWS</button>
+              </div>
+              <div style={{ fontFamily: F2, fontSize: 11, fontWeight: 700, color: TD, letterSpacing: 2, marginBottom: 12 }}>EXISTING NEWS</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {displayNews.map(n => (
+                  <div key={n.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", background: BG, borderRadius: 8, border: `1px solid ${BD}` }}>
+                    <div>
+                      <span style={{ fontFamily: F2, fontSize: 10, color: n.color, marginRight: 8 }}>{n.type}</span>
+                      <span style={{ fontFamily: F1, fontSize: 13, color: T }}>{n.title}</span>
+                    </div>
+                    <button onClick={() => deleteNewsItem(n.id)} style={{ background: `${A2}15`, border: `1px solid ${A2}30`, color: A2, padding: "4px 12px", borderRadius: 6, fontFamily: F1, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>DELETE</button>
                   </div>
                 ))}
               </div>
-            )}
-          </div>
-        )}
+            </div>
+          )}
 
-      </div>
+          {activeTab === "leaderboard" && (
+            <div style={{ animation: "fadeSlideUp 0.3s ease-out" }}>
+              <h3 style={{ fontFamily: F2, fontSize: 16, fontWeight: 700, color: T, margin: "0 0 20px" }}>Leaderboard Viewer</h3>
+              <div className="ee-admin-search" style={{ display: "flex", gap: 10, marginBottom: 20 }}>
+                <input style={{ ...inputStyle, flex: 1 }} value={lbStat} onChange={e => setLbStat(e.target.value)} placeholder="Statistic name (e.g. Gold)" />
+                <button onClick={fetchLeaderboard} style={{ padding: "12px 24px", background: `linear-gradient(135deg,${A},#00b8d4)`, border: "none", borderRadius: 8, color: BG, fontFamily: F1, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>LOAD</button>
+              </div>
+              {lbErr && <div style={{ color: A2, fontFamily: F1, fontSize: 13, marginBottom: 16 }}>❌ {lbErr}</div>}
+              {lbData.length > 0 && (
+                <div style={{ background: BG, borderRadius: 12, overflow: "hidden", border: `1px solid ${BD}` }}>
+                  {lbData.map((p, i) => (
+                    <div key={p.PlayFabId} style={{ display: "flex", padding: "14px 20px", borderBottom: i < lbData.length - 1 ? `1px solid ${BD}` : "none", alignItems: "center", gap: 16 }}>
+                      <span style={{ fontFamily: F2, fontSize: 14, fontWeight: 800, color: p.Position < 3 ? A : TD, minWidth: 32 }}>{p.Position + 1}</span>
+                      <span style={{ fontFamily: F1, fontSize: 14, color: T, flex: 1 }}>{p.DisplayName || "Anonymous"}</span>
+                      <span style={{ fontFamily: F1, fontSize: 12, color: TD, flex: 1 }}>{p.PlayFabId}</span>
+                      <span style={{ fontFamily: F2, fontSize: 14, color: WN, fontWeight: 700 }}>{p.StatValue.toLocaleString()} G</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === "revenue" && (
+            <div style={{ animation: "fadeSlideUp 0.3s ease-out" }}>
+              <h3 style={{ fontFamily: F2, fontSize: 16, fontWeight: 700, color: T, margin: "0 0 20px" }}>Revenue Tracker</h3>
+              {!revenueLoaded ? (
+                <button onClick={loadRevenue} style={{ padding: "12px 24px", background: `linear-gradient(135deg,${A},#00b8d4)`, border: "none", borderRadius: 8, color: BG, fontFamily: F1, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>LOAD REVENUE DATA</button>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  {gameRevenue && Object.entries(gameRevenue).map(([k, v]) => (
+                    <div key={k}><label style={labelStyle}>{k}</label><input style={inputStyle} value={v} onChange={e => setGameRevenue(prev => ({ ...prev, [k]: e.target.value }))} /></div>
+                  ))}
+                  {revenueMsg && <div style={{ fontFamily: F1, fontSize: 13, color: revenueMsg.startsWith("✅") ? OK : A2 }}>{revenueMsg}</div>}
+                  <button onClick={saveRevenue} style={{ alignSelf: "flex-start", padding: "10px 24px", background: `linear-gradient(135deg,${OK},${A})`, border: "none", borderRadius: 8, color: BG, fontFamily: F1, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>SAVE</button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === "logs" && (
+            <div style={{ animation: "fadeSlideUp 0.3s ease-out" }}>
+              <h3 style={{ fontFamily: F2, fontSize: 16, fontWeight: 700, color: T, margin: "0 0 20px" }}>Event Logs</h3>
+              <button onClick={fetchLogs} style={{ padding: "10px 24px", background: `linear-gradient(135deg,${A},#00b8d4)`, border: "none", borderRadius: 8, color: BG, fontFamily: F1, fontWeight: 700, fontSize: 13, cursor: "pointer", marginBottom: 20 }}>LOAD LOGS</button>
+              {logEntries.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {logEntries.map((log, i) => (
+                    <div key={i} style={{ padding: "12px 16px", background: BG, borderRadius: 8, border: `1px solid ${BD}` }}>
+                      <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 4 }}>
+                        <span style={{ fontFamily: F2, fontSize: 10, color: A, fontWeight: 700 }}>{log.event}</span>
+                        {log.time && <span style={{ fontFamily: F1, fontSize: 10, color: TD }}>{log.time}</span>}
+                      </div>
+                      <p style={{ fontFamily: F1, fontSize: 12, color: TD, margin: 0, lineHeight: 1.5 }}>{log.msg}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -1372,6 +1635,10 @@ export default function EasyExpressSite() {
   const [activeSection, setActiveSection] = useState("");
   const { toasts, addToast, removeToast } = useToasts();
   const [currentUser, setCurrentUser] = useState(null);
+  const [showCheckout, setShowCheckout] = useState(false);
+  const [ownsGame, setOwnsGame] = useState(false);
+  const [sessionTicket, setSessionTicket] = useState(localStorage.getItem("ee_session_ticket") || null);
+  const [playFabId, setPlayFabId] = useState(localStorage.getItem("ee_auth_pfid") || null);
   const [liveNews, setLiveNews] = useState(NEWS);
   const SPECIFIC_ADMIN_ACCOUNT = "masteradmin";
   const isAdmin = currentUser === SPECIFIC_ADMIN_ACCOUNT;
@@ -1379,24 +1646,62 @@ export default function EasyExpressSite() {
   const [adminKey, setAdminKey] = useState("");
   const [adminAuthed, setAdminAuthed] = useState(false);
 
+  // Fetch live news on mount
   useEffect(() => {
     async function fetchLiveNews() {
-      try { 
-        const titleData = await fetchTitleData(["GameNews"]); 
-        // Checks if GameNews exists AND isn't just an empty space before parsing
+      try {
+        const titleData = await fetchTitleData(["GameNews"]);
         if (titleData.GameNews && titleData.GameNews.trim() !== "") {
-          setLiveNews(JSON.parse(titleData.GameNews)); 
+          setLiveNews(JSON.parse(titleData.GameNews));
         }
-      } catch (e) { 
-        console.error("Failed to load live news:", e); 
+      } catch (e) {
+        console.error("Failed to load live news:", e);
       }
     }
     fetchLiveNews();
   }, []);
 
+  // Handle PayMongo redirect back after payment
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const paymentStatus = params.get("payment");
+
+    if (paymentStatus === "success") {
+      window.history.replaceState({}, "", window.location.pathname + window.location.hash);
+      setOwnsGame(true);
+      addToast({
+        type: "success",
+        title: "Purchase Complete! 🎉",
+        message: "Easy Express Full Game is now unlocked. Download the full version!",
+        duration: 8000,
+      });
+    }
+    if (paymentStatus === "cancelled") {
+      window.history.replaceState({}, "", window.location.pathname + window.location.hash);
+      addToast({
+        type: "warning",
+        title: "Payment Cancelled",
+        message: "Your payment was not completed. No charge was made.",
+        duration: 5000,
+      });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   useScrollReveal();
 
-  const handleLogout = () => { setCurrentUser(null); setShowAdmin(false); setAdminAuthed(false); setAdminKey(""); addToast({ type: "info", title: "Logged Out", message: "You have been logged out of the web portal." }); };
+  const handleLogout = () => {
+    setCurrentUser(null);
+    setSessionTicket(null);
+    setPlayFabId(null);
+    setShowAdmin(false);
+    setAdminAuthed(false);
+    setAdminKey("");
+    setOwnsGame(false);
+    localStorage.removeItem("ee_session_ticket");
+    localStorage.removeItem("ee_auth_pfid");
+    localStorage.removeItem("ee_auth_username");
+    addToast({ type: "info", title: "Logged Out", message: "You have been logged out of the web portal." });
+  };
 
   return (
     <ErrorBoundary>
@@ -1472,7 +1777,20 @@ export default function EasyExpressSite() {
         `}</style>
         <ToastContainer toasts={toasts} removeToast={removeToast} />
         <Nav onAuth={setAuthModal} activeSection={activeSection} isAdmin={isAdmin} onAdminToggle={() => setShowAdmin(!showAdmin)} showAdmin={showAdmin} currentUser={currentUser} onLogout={handleLogout} />
-        <Hero onAuth={setAuthModal} />
+        
+        <Hero
+          onAuth={setAuthModal}
+          ownsGame={ownsGame}
+          onBuyClick={() => {
+            if (!currentUser) {
+              addToast({ type: "info", title: "Login Required", message: "Please log in or create an account before purchasing.", duration: 4000 });
+              setAuthModal("login");
+            } else {
+              setShowCheckout(true);
+            }
+          }}
+        />
+
         <Features />
         <Scenarios />
         <GallerySection />
@@ -1483,8 +1801,53 @@ export default function EasyExpressSite() {
         <SupportSection addToast={addToast} />
         <About />
         <Footer />
-        {authModal && (<AuthModal mode={authModal} setMode={setAuthModal} onClose={() => setAuthModal(null)} addToast={addToast} liveNews={liveNews} onLoginSuccess={(username) => { setCurrentUser(username); setAuthModal(null); }} />)}
-        {showAdmin && isAdmin && (<AdminDashboard addToast={addToast} onClose={() => setShowAdmin(false)} adminKey={adminKey} setAdminKey={setAdminKey} authed={adminAuthed} setAuthed={setAdminAuthed} liveNews={liveNews} onNewsUpdated={setLiveNews} />)}
+
+        {authModal && (
+          <AuthModal
+            mode={authModal}
+            setMode={setAuthModal}
+            onClose={() => setAuthModal(null)}
+            addToast={addToast}
+            liveNews={liveNews}
+            onLoginSuccess={(username, ticket, pfId) => {
+              setCurrentUser(username);
+              setSessionTicket(ticket);
+              setPlayFabId(pfId);
+              setAuthModal(null);
+              if (ticket) localStorage.setItem("ee_session_ticket", ticket);
+              if (pfId)   localStorage.setItem("ee_auth_pfid", pfId);
+              if (username) localStorage.setItem("ee_auth_username", username);
+              if (ticket) {
+                checkFullGameOwnership(ticket).then(owned => {
+                  if (owned) setOwnsGame(true);
+                }).catch(() => {});
+              }
+            }}
+          />
+        )}
+
+        {showCheckout && (
+          <CheckoutModal
+            onClose={() => setShowCheckout(false)}
+            onSuccess={() => setOwnsGame(true)}
+            addToast={addToast}
+            sessionTicket={sessionTicket}
+            playFabId={playFabId}
+          />
+        )}
+
+        {showAdmin && isAdmin && (
+          <AdminDashboard
+            addToast={addToast}
+            onClose={() => setShowAdmin(false)}
+            adminKey={adminKey}
+            setAdminKey={setAdminKey}
+            authed={adminAuthed}
+            setAuthed={setAdminAuthed}
+            liveNews={liveNews}
+            onNewsUpdated={setLiveNews}
+          />
+        )}
       </div>
     </ErrorBoundary>
   );

@@ -63,11 +63,12 @@ async function _loginAsGuest(guestId) {
       CustomId:      guestId,
       CreateAccount: true,         // Creates account on first ever login; reuses after
       InfoRequestParameters: {
-        GetUserData: false,        // Minimize payload
+        GetUserData: false,       // Minimize payload
         GetPlayerStatistics: false,
       }
     }),
   });
+
   const json = await res.json();
   if (json.code !== 200) throw new Error(json.errorMessage || "Guest login failed");
 
@@ -126,7 +127,8 @@ export async function getGuestSessionTicket() {
 }
 
 /**
- * Clears the cached guest ticket. Call this if you get a 401 Unauthorized.
+ * Clears the cached guest ticket.
+ * Call this if you get a 401 Unauthorized.
  */
 export function invalidateGuestTicket() {
   _inMemoryTicket = null;
@@ -143,6 +145,7 @@ const LB_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 export async function fetchPublicLeaderboard(statisticName, maxResults = 10) {
   const cacheKey = `ee_lb_${statisticName}`;
   const raw = sessionStorage.getItem(cacheKey);
+
   if (raw) {
     try {
       const { entries, ts } = JSON.parse(raw);
@@ -166,6 +169,7 @@ export async function fetchPublicLeaderboard(statisticName, maxResults = 10) {
       MaxResultsCount: maxResults,
     }),
   });
+
   const json = await res.json();
 
   // Stale ticket → invalidate and retry once
@@ -192,6 +196,7 @@ export async function fetchTitleData(keys) {
     headers: { "Content-Type": "application/json", "X-Authorization": ticket },
     body: JSON.stringify({ Keys: keys }),
   });
+
   const json = await res.json();
   if (json.code === 401 || json.code === 1074) {
     invalidateGuestTicket();
@@ -218,6 +223,7 @@ export async function registerUser({ username, email, password, displayName }) {
       RequireBothUsernameAndEmail: true,
     }),
   });
+
   const data = await res.json();
   if (data.code !== 200) throw new Error(data.errorMessage || "Registration failed");
   return data.data; // { SessionTicket, PlayFabId, ... }
@@ -229,6 +235,7 @@ export async function loginWithEmail({ email, password }) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ TitleId: TITLE_ID, Email: email, Password: password }),
   });
+
   const data = await res.json();
   if (data.code !== 200) throw new Error(data.errorMessage || "Login failed");
   return data.data;
@@ -240,6 +247,7 @@ export async function loginWithUsername({ username, password }) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ TitleId: TITLE_ID, Username: username, Password: password }),
   });
+
   const data = await res.json();
   if (data.code !== 200) throw new Error(data.errorMessage || "Login failed");
   return data.data;
@@ -259,6 +267,7 @@ export async function executeCloudScript({ sessionTicket, functionName, function
       GeneratePlayStreamEvent: true,
     }),
   });
+
   const data = await res.json();
   if (data.code !== 200) throw new Error(data.errorMessage || "Cloud Script failed");
   return data.data;
@@ -287,6 +296,7 @@ export async function sendPasswordRecoveryEmail(email) {
       Email:   email.trim().toLowerCase(),
     }),
   });
+
   const data = await res.json();
 
   // PlayFab returns 200 even if the email doesn't exist (security — no user enumeration)
@@ -312,7 +322,47 @@ export async function getUserData(sessionTicket, keys = []) {
     headers: { "Content-Type": "application/json", "X-Authorization": sessionTicket },
     body: JSON.stringify({ Keys: keys }),
   });
+
   const data = await res.json();
   if (data.code !== 200) throw new Error(data.errorMessage || "GetUserData failed");
   return data.data?.Data ?? {};
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  FULL GAME OWNERSHIP — Save & Check
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Called after a successful purchase. Flags the account as owning the full game.
+ * @param {string} sessionTicket - The logged-in user's session ticket.
+ */
+export async function saveFullGameOwnership(sessionTicket) {
+  const res = await fetch(`${BASE_URL}/Client/UpdateUserData`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Authorization": sessionTicket },
+    body: JSON.stringify({
+      Data: { fullGameOwned: "true" },
+      Permission: "Public",
+    }),
+  });
+  const data = await res.json();
+  if (data.code !== 200) throw new Error(data.errorMessage || "Failed to save ownership.");
+  return true;
+}
+
+/**
+ * Checks if the logged-in user owns the full game.
+ * Call this after login to gate the download button.
+ * @param {string} sessionTicket - The logged-in user's session ticket.
+ * @returns {boolean} true if they own the full game.
+ */
+export async function checkFullGameOwnership(sessionTicket) {
+  const res = await fetch(`${BASE_URL}/Client/GetUserData`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Authorization": sessionTicket },
+    body: JSON.stringify({ Keys: ["fullGameOwned"] }),
+  });
+  const data = await res.json();
+  if (data.code !== 200) return false;
+  return data.data?.Data?.fullGameOwned?.Value === "true";
 }

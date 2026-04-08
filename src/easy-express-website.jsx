@@ -1214,9 +1214,151 @@ function AdminDashboard({ addToast, onClose, adminKey, setAdminKey, authed, setA
           {tabs.map(t => (<button key={t.id} className="ee-tab-btn" onClick={() => setActiveTab(t.id)} style={{ padding: "10px 20px", borderRadius: 8, fontFamily: F1, fontWeight: 700, fontSize: 12, cursor: "pointer", letterSpacing: 1, transition: "all 0.3s", background: activeTab === t.id ? `${A}15` : CARD, border: `1px solid ${activeTab === t.id ? A + "40" : BD}`, color: activeTab === t.id ? A : TD }}>{t.label}</button>))}
         </div>
         <div style={{ background: CARD, border: `1px solid ${BD}`, borderRadius: 16, padding: "28px 28px", position: "relative", overflow: "hidden" }}>
-          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg,${A},transparent)` }} />
-          <p style={{ fontFamily: F1, fontSize: 13, color: TD }}>Admin panel content renders here based on active tab. This is a simplified version — your full admin tabs (players, news, leaderboard, revenue, logs) work exactly as before.</p>
+  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg,${A},transparent)` }} />
+
+  {activeTab === "players" && (
+    <div style={{ animation: "fadeSlideUp 0.3s ease-out" }}>
+      <h3 style={{ fontFamily: F2, fontSize: 16, fontWeight: 700, color: T, margin: "0 0 20px" }}>Player Lookup</h3>
+      <div className="ee-admin-search" style={{ display: "flex", gap: 10, marginBottom: 20 }}>
+        <input style={{ ...inputStyle, flex: 1 }} value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Email address or PlayFab ID" onKeyDown={e => { if (e.key === "Enter") searchPlayer(); }} />
+        <button onClick={searchPlayer} style={{ padding: "12px 24px", background: `linear-gradient(135deg,${A},#00b8d4)`, border: "none", borderRadius: 8, color: BG, fontFamily: F1, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>SEARCH</button>
+      </div>
+      {searchErr && <div style={{ color: A2, fontFamily: F1, fontSize: 13, marginBottom: 16, padding: "10px 14px", background: `${A2}0a`, borderRadius: 8, border: `1px solid ${A2}25` }}>❌ {searchErr}</div>}
+      {searchResult && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          <div style={{ background: BG, borderRadius: 12, padding: "20px 24px", border: `1px solid ${BD}` }}>
+            <div style={{ fontFamily: F2, fontSize: 11, fontWeight: 700, color: A, letterSpacing: 2, marginBottom: 14 }}>ACCOUNT INFO</div>
+            {[{ l: "PlayFab ID", v: searchResult.id }, { l: "Email", v: searchResult.email }, { l: "Display Name", v: searchResult.displayName }, { l: "Status", v: searchResult.banned ? "🚫 BANNED" : "✅ Active" }].map((r, i) => (
+              <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: i < 3 ? `1px solid ${BD}` : "none" }}>
+                <span style={{ fontFamily: F1, fontSize: 12, color: TD, fontWeight: 600 }}>{r.l}</span>
+                <span style={{ fontFamily: F1, fontSize: 13, color: r.l === "Status" ? (searchResult.banned ? A2 : OK) : T, fontWeight: 600 }}>{r.v}</span>
+              </div>
+            ))}
+            {playerStats && (
+              <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${BD}` }}>
+                <span style={{ fontFamily: F1, fontSize: 12, color: TD, fontWeight: 600 }}>Gold</span>
+                <span style={{ fontFamily: F1, fontSize: 13, color: WN, fontWeight: 700, float: "right" }}>{(playerStats.Gold || 0).toLocaleString()} G</span>
+              </div>
+            )}
+          </div>
+          <div style={{ background: BG, borderRadius: 12, padding: "20px 24px", border: `1px solid ${BD}` }}>
+            <div style={{ fontFamily: F2, fontSize: 11, fontWeight: 700, color: A, letterSpacing: 2, marginBottom: 14 }}>PLAYER DATA</div>
+            {Object.entries(editData).map(([k, v]) => (
+              <div key={k} style={{ marginBottom: 10 }}>
+                <label style={labelStyle}>{k}</label>
+                <input style={inputStyle} value={v} onChange={e => setEditData(prev => ({ ...prev, [k]: e.target.value }))} />
+              </div>
+            ))}
+            {editMsg && <div style={{ fontFamily: F1, fontSize: 13, color: editMsg.startsWith("✅") ? OK : A2, marginBottom: 10 }}>{editMsg}</div>}
+            <button onClick={updatePlayerData} style={{ padding: "10px 20px", background: `linear-gradient(135deg,${A},#00b8d4)`, border: "none", borderRadius: 8, color: BG, fontFamily: F1, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>SAVE CHANGES</button>
+          </div>
+          <div style={{ background: BG, borderRadius: 12, padding: "20px 24px", border: `1px solid ${A2}20` }}>
+            <div style={{ fontFamily: F2, fontSize: 11, fontWeight: 700, color: A2, letterSpacing: 2, marginBottom: 14 }}>BAN PLAYER</div>
+            <div className="ee-admin-search" style={{ display: "flex", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
+              <input style={{ ...inputStyle, flex: 1 }} value={banReason} onChange={e => setBanReason(e.target.value)} placeholder="Reason for ban..." />
+              <select style={{ ...inputStyle, width: "auto", cursor: "pointer" }} value={banDuration} onChange={e => setBanDuration(e.target.value)}>
+                {BAN_DURATIONS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
+              </select>
+            </div>
+            {banMsg && <div style={{ fontFamily: F1, fontSize: 13, color: banMsg.startsWith("✅") ? OK : A2, marginBottom: 10 }}>{banMsg}</div>}
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={banPlayer} style={{ padding: "10px 20px", background: `linear-gradient(135deg,${A2},${WN})`, border: "none", borderRadius: 8, color: BG, fontFamily: F1, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>BAN PLAYER</button>
+              <button onClick={unbanPlayer} style={{ padding: "10px 20px", background: "transparent", border: `1px solid ${OK}40`, color: OK, borderRadius: 8, fontFamily: F1, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>UNBAN PLAYER</button>
+            </div>
+          </div>
         </div>
+      )}
+    </div>
+  )}
+
+  {activeTab === "news" && (
+    <div style={{ animation: "fadeSlideUp 0.3s ease-out" }}>
+      <h3 style={{ fontFamily: F2, fontSize: 16, fontWeight: 700, color: T, margin: "0 0 20px" }}>News Editor</h3>
+      <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 24 }}>
+        <div className="ee-admin-search" style={{ display: "flex", gap: 10 }}>
+          <div style={{ flex: 1 }}><label style={labelStyle}>Title</label><input style={inputStyle} value={newsTitle} onChange={e => setNewsTitle(e.target.value)} placeholder="News headline..." /></div>
+          <div><label style={labelStyle}>Type</label><select style={{ ...inputStyle, cursor: "pointer" }} value={newsType} onChange={e => setNewsType(e.target.value)}><option value="UPDATE">UPDATE</option><option value="EVENT">EVENT</option><option value="PATCH">PATCH</option><option value="NEW">NEW</option></select></div>
+        </div>
+        <div><label style={labelStyle}>Body</label><textarea style={{ ...inputStyle, minHeight: 80, resize: "vertical" }} value={newsBody} onChange={e => setNewsBody(e.target.value)} placeholder="News content..." /></div>
+        {newsMsg && <div style={{ fontFamily: F1, fontSize: 13, color: newsMsg.startsWith("✅") ? OK : A2 }}>{newsMsg}</div>}
+        <button onClick={addNewsItem} style={{ alignSelf: "flex-start", padding: "10px 24px", background: `linear-gradient(135deg,${A},#00b8d4)`, border: "none", borderRadius: 8, color: BG, fontFamily: F1, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>PUBLISH NEWS</button>
+      </div>
+      <div style={{ fontFamily: F2, fontSize: 11, fontWeight: 700, color: TD, letterSpacing: 2, marginBottom: 12 }}>EXISTING NEWS</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {displayNews.map(n => (
+          <div key={n.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", background: BG, borderRadius: 8, border: `1px solid ${BD}` }}>
+            <div>
+              <span style={{ fontFamily: F2, fontSize: 10, color: n.color, marginRight: 8 }}>{n.type}</span>
+              <span style={{ fontFamily: F1, fontSize: 13, color: T }}>{n.title}</span>
+            </div>
+            <button onClick={() => deleteNewsItem(n.id)} style={{ background: `${A2}15`, border: `1px solid ${A2}30`, color: A2, padding: "4px 12px", borderRadius: 6, fontFamily: F1, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>DELETE</button>
+          </div>
+        ))}
+      </div>
+    </div>
+  )}
+
+  {activeTab === "leaderboard" && (
+    <div style={{ animation: "fadeSlideUp 0.3s ease-out" }}>
+      <h3 style={{ fontFamily: F2, fontSize: 16, fontWeight: 700, color: T, margin: "0 0 20px" }}>Leaderboard Viewer</h3>
+      <div className="ee-admin-search" style={{ display: "flex", gap: 10, marginBottom: 20 }}>
+        <input style={{ ...inputStyle, flex: 1 }} value={lbStat} onChange={e => setLbStat(e.target.value)} placeholder="Statistic name (e.g. Gold)" />
+        <button onClick={fetchLeaderboard} style={{ padding: "12px 24px", background: `linear-gradient(135deg,${A},#00b8d4)`, border: "none", borderRadius: 8, color: BG, fontFamily: F1, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>LOAD</button>
+      </div>
+      {lbErr && <div style={{ color: A2, fontFamily: F1, fontSize: 13, marginBottom: 16 }}>❌ {lbErr}</div>}
+      {lbData.length > 0 && (
+        <div style={{ background: BG, borderRadius: 12, overflow: "hidden", border: `1px solid ${BD}` }}>
+          {lbData.map((p, i) => (
+            <div key={p.PlayFabId} style={{ display: "flex", padding: "14px 20px", borderBottom: i < lbData.length - 1 ? `1px solid ${BD}` : "none", alignItems: "center", gap: 16 }}>
+              <span style={{ fontFamily: F2, fontSize: 14, fontWeight: 800, color: p.Position < 3 ? A : TD, minWidth: 32 }}>{p.Position + 1}</span>
+              <span style={{ fontFamily: F1, fontSize: 14, color: T, flex: 1 }}>{p.DisplayName || "Anonymous"}</span>
+              <span style={{ fontFamily: F1, fontSize: 12, color: TD, flex: 1 }}>{p.PlayFabId}</span>
+              <span style={{ fontFamily: F2, fontSize: 14, color: WN, fontWeight: 700 }}>{p.StatValue.toLocaleString()} G</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )}
+
+  {activeTab === "revenue" && (
+    <div style={{ animation: "fadeSlideUp 0.3s ease-out" }}>
+      <h3 style={{ fontFamily: F2, fontSize: 16, fontWeight: 700, color: T, margin: "0 0 20px" }}>Revenue Tracker</h3>
+      {!revenueLoaded ? (
+        <button onClick={loadRevenue} style={{ padding: "12px 24px", background: `linear-gradient(135deg,${A},#00b8d4)`, border: "none", borderRadius: 8, color: BG, fontFamily: F1, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>LOAD REVENUE DATA</button>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {gameRevenue && Object.entries(gameRevenue).map(([k, v]) => (
+            <div key={k}><label style={labelStyle}>{k}</label><input style={inputStyle} value={v} onChange={e => setGameRevenue(prev => ({ ...prev, [k]: e.target.value }))} /></div>
+          ))}
+          {revenueMsg && <div style={{ fontFamily: F1, fontSize: 13, color: revenueMsg.startsWith("✅") ? OK : A2 }}>{revenueMsg}</div>}
+          <button onClick={saveRevenue} style={{ alignSelf: "flex-start", padding: "10px 24px", background: `linear-gradient(135deg,${OK},${A})`, border: "none", borderRadius: 8, color: BG, fontFamily: F1, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>SAVE</button>
+        </div>
+      )}
+    </div>
+  )}
+
+  {activeTab === "logs" && (
+          <div style={{ animation: "fadeSlideUp 0.3s ease-out" }}>
+            <h3 style={{ fontFamily: F2, fontSize: 16, fontWeight: 700, color: T, margin: "0 0 20px" }}>Event Logs</h3>
+            <button onClick={fetchLogs} style={{ padding: "10px 24px", background: `linear-gradient(135deg,${A},#00b8d4)`, border: "none", borderRadius: 8, color: BG, fontFamily: F1, fontWeight: 700, fontSize: 13, cursor: "pointer", marginBottom: 20 }}>LOAD LOGS</button>
+            {logEntries.length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {logEntries.map((log, i) => (
+                  <div key={i} style={{ padding: "12px 16px", background: BG, borderRadius: 8, border: `1px solid ${BD}` }}>
+                    <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 4 }}>
+                      <span style={{ fontFamily: F2, fontSize: 10, color: A, fontWeight: 700 }}>{log.event}</span>
+                      {log.time && <span style={{ fontFamily: F1, fontSize: 10, color: TD }}>{log.time}</span>}
+                    </div>
+                    <p style={{ fontFamily: F1, fontSize: 12, color: TD, margin: 0, lineHeight: 1.5 }}>{log.msg}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+      </div>
       </div>
     </div>
   );

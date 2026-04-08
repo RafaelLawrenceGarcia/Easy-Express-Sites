@@ -1660,6 +1660,8 @@ export default function EasyExpressSite() {
       }
     }
     fetchLiveNews();
+    const interval = setInterval(fetchLiveNews, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   // Handle PayMongo redirect back after payment

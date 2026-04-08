@@ -1,9 +1,9 @@
 // ============================================================
 //  ResetPasswordPage.jsx — FINAL
-//  Step 1: Enter email → OTP sent via EmailJS
-//  Step 2: Verify OTP via CloudScript
-//  Step 3: Enter new password → POST to /api/reset-password
-//  Step 4: Success
+//  Step 1: Email → OTP sent via EmailJS
+//  Step 2: Verify OTP
+//  Step 3: OTP verified → Client/SendAccountRecoveryEmail sent
+//          → "Check email for reset link"
 // ============================================================
 
 import React, { useState, useRef, useEffect } from "react";
@@ -16,8 +16,7 @@ const EMAILJS_PUBLIC_KEY  = "3LQw31VLjecEmrw0D";
 
 const A = "#00e5ff"; const A2 = "#ff3d71"; const BG = "#0a0c10";
 const CARD = "#12151c"; const T = "#e0e6f0"; const TD = "#7a8399";
-const BD = "#1e2333"; const OK = "#00e676"; const WN = "#ff9f1c";
-const PU = "#7c4dff";
+const BD = "#1e2333"; const OK = "#00e676"; const PU = "#7c4dff";
 const F1 = "'Chakra Petch', sans-serif";
 const F2 = "'Orbitron', sans-serif";
 
@@ -30,8 +29,8 @@ async function getGuestTicket() {
   return json.data.SessionTicket;
 }
 
-async function runCloudScript(ticket, functionName, params) {
-  const res = await fetch(`${BASE_URL}/Client/ExecuteCloudScript`, { method: "POST", headers: { "Content-Type": "application/json", "X-Authorization": ticket }, body: JSON.stringify({ FunctionName: functionName, FunctionParameter: params, GeneratePlayStreamEvent: true }) });
+async function runCloudScript(ticket, fn, params) {
+  const res = await fetch(`${BASE_URL}/Client/ExecuteCloudScript`, { method: "POST", headers: { "Content-Type": "application/json", "X-Authorization": ticket }, body: JSON.stringify({ FunctionName: fn, FunctionParameter: params, GeneratePlayStreamEvent: true }) });
   const json = await res.json();
   if (json.code !== 200) throw new Error(json.errorMessage || "CloudScript failed");
   return json.data;
@@ -40,24 +39,6 @@ async function runCloudScript(ticket, functionName, params) {
 async function sendOTPviaEmailJS(toEmail, otpCode) {
   const res = await fetch("https://api.emailjs.com/api/v1.0/email/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ service_id: EMAILJS_SERVICE_ID, template_id: EMAILJS_TEMPLATE_ID, user_id: EMAILJS_PUBLIC_KEY, template_params: { to_email: toEmail, player_name: "Player", otp_code: otpCode } }) });
   if (!res.ok) throw new Error("EmailJS failed: " + await res.text());
-}
-
-function PwStrength({ password }) {
-  if (!password) return null;
-  let score = 0;
-  if (password.length >= 8) score++;
-  if (password.length >= 12) score++;
-  if (/[A-Z]/.test(password)) score++;
-  if (/[0-9]/.test(password)) score++;
-  if (/[^A-Za-z0-9]/.test(password)) score++;
-  const levels = [{ label:"WEAK",color:A2},{label:"WEAK",color:A2},{label:"FAIR",color:WN},{label:"GOOD",color:A},{label:"STRONG",color:OK},{label:"STRONG",color:OK}];
-  const s = levels[score];
-  return (
-    <div style={{marginTop:8}}>
-      <div style={{display:"flex",gap:4,marginBottom:4}}>{[1,2,3,4].map(i=><div key={i} style={{flex:1,height:3,borderRadius:2,background:i<=Math.min(score,4)?s.color:BD}}/>)}</div>
-      <div style={{fontFamily:F1,fontSize:10,fontWeight:700,color:s.color,letterSpacing:1.5}}>{s.label}</div>
-    </div>
-  );
 }
 
 export default function ResetPasswordPage() {
@@ -69,10 +50,6 @@ export default function ResetPasswordPage() {
   const [otpCode, setOtpCode] = useState(["","","","","",""]);
   const otpRefs  = useRef([]);
   const emailRef = useRef(null);
-  const [newPassword, setNewPassword]     = useState("");
-  const [confirmPw, setConfirmPw]         = useState("");
-  const [showNew, setShowNew]             = useState(false);
-  const [showConf, setShowConf]           = useState(false);
 
   useEffect(() => {
     if (step === 1 && emailRef.current) emailRef.current.focus();
@@ -83,7 +60,6 @@ export default function ResetPasswordPage() {
   const btnPrimary = { width:"100%",padding:16,background:`linear-gradient(135deg,${A},#00b8d4)`,border:"none",borderRadius:12,color:BG,fontFamily:F1,fontWeight:800,fontSize:15,cursor:"pointer",letterSpacing:1.5,marginTop:12 };
   const btnSec     = { background:"transparent",border:`1px solid ${BD}`,borderRadius:10,color:TD,fontFamily:F1,fontSize:13,fontWeight:600,cursor:"pointer",padding:"12px 24px",width:"100%",marginTop:10 };
   const labelSt    = { display:"block",marginBottom:8,color:TD,fontSize:11,fontWeight:700,letterSpacing:2,fontFamily:F1,textTransform:"uppercase" };
-  const pwToggle   = (a) => ({ position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",color:a?A:TD,cursor:"pointer",fontFamily:F1,fontSize:11,fontWeight:700,padding:0 });
 
   const Err = () => error ? (
     <div style={{color:A2,fontSize:13,marginBottom:20,fontFamily:F1,padding:"12px 16px",background:`${A2}08`,borderRadius:12,border:`1px solid ${A2}20`,display:"flex",gap:10,alignItems:"center",lineHeight:1.5}}>
@@ -118,28 +94,21 @@ export default function ResetPasswordPage() {
     try {
       const r = await runCloudScript(ticket, "verifyPasswordResetOTPOnly", { email: email.trim().toLowerCase(), code });
       if (!r.FunctionResult?.success) throw new Error(r.FunctionResult?.error || "Invalid or expired code.");
+
+      // OTP verified — send PlayFab recovery email (no template ID = default reset template)
+      const recoveryRes = await fetch(`${BASE_URL}/Client/SendAccountRecoveryEmail`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ TitleId: TITLE_ID, Email: email.trim().toLowerCase() })
+      });
+      const recoveryJson = await recoveryRes.json();
+      if (recoveryJson.code !== 200) throw new Error(recoveryJson.errorMessage || "Failed to send reset email.");
+
       setLoading(false); setStep(3);
     } catch (err) { setLoading(false); setError(err.message); }
   };
 
-  // Step 3 — calls Vercel serverless function
-  const handleChangePassword = async () => {
-    if (newPassword.length < 8) { setError("Password must be at least 8 characters."); return; }
-    if (newPassword !== confirmPw) { setError("Passwords do not match."); return; }
-    setLoading(true); setError("");
-    try {
-      const res = await fetch("/api/reset-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim().toLowerCase(), newPassword })
-      });
-      const json = await res.json();
-      if (!json.success) throw new Error(json.error || "Password reset failed.");
-      setLoading(false); setStep(4);
-    } catch (err) { setLoading(false); setError(err.message); }
-  };
-
-  const stepLabels = ["Email","Verify","New Password","Done"];
+  const stepLabels = ["Email","Verify","Check Email"];
   const Steps = () => (
     <div style={{display:"flex",alignItems:"center",justifyContent:"center",marginBottom:36}}>
       {stepLabels.map((label,i) => {
@@ -152,7 +121,7 @@ export default function ResetPasswordPage() {
               </div>
               <span style={{fontFamily:F1,fontSize:9,fontWeight:700,color:current?A:active?T:TD,letterSpacing:1.5,textTransform:"uppercase"}}>{label}</span>
             </div>
-            {i<3&&<div style={{flex:1,height:2,minWidth:20,maxWidth:48,background:step>s?OK:step===s?A:BD,margin:"0 4px",marginBottom:20,borderRadius:1}}/>}
+            {i<2&&<div style={{flex:1,height:2,minWidth:20,maxWidth:48,background:step>s?OK:step===s?A:BD,margin:"0 4px",marginBottom:20,borderRadius:1}}/>}
           </React.Fragment>
         );
       })}
@@ -173,7 +142,7 @@ export default function ResetPasswordPage() {
         </div>
 
         <div style={{background:CARD,border:`1px solid ${BD}`,borderRadius:20,padding:"40px 36px",position:"relative",overflow:"hidden",boxShadow:`0 24px 80px ${BG}cc`}}>
-          <div style={{position:"absolute",top:0,left:0,right:0,height:3,background:step===4?`linear-gradient(90deg,${OK},${A})`:`linear-gradient(90deg,${A},${PU})`}}/>
+          <div style={{position:"absolute",top:0,left:0,right:0,height:3,background:step===3?`linear-gradient(90deg,${OK},${A})`:`linear-gradient(90deg,${A},${PU})`}}/>
           <Steps/>
           <Err/>
 
@@ -224,61 +193,27 @@ export default function ResetPasswordPage() {
             </div>
           )}
 
-          {/* STEP 3 */}
+          {/* STEP 3 — LINK SENT */}
           {step===3&&(
-            <div style={{animation:"fadeSlideUp 0.4s ease-out"}}>
-              <div style={{width:72,height:72,borderRadius:18,background:`${OK}10`,border:`1px solid ${OK}20`,display:"grid",placeItems:"center",margin:"0 auto 24px",fontSize:36}}>🔒</div>
-              <h2 style={{fontFamily:F2,fontSize:22,fontWeight:800,color:T,margin:"0 0 8px",textAlign:"center"}}>Create New Password</h2>
-              <p style={{color:TD,fontSize:14,fontFamily:F1,lineHeight:1.6,textAlign:"center",margin:"0 0 6px"}}>Identity verified. Choose a new password for</p>
-              <p style={{color:A,fontSize:14,fontFamily:F1,fontWeight:700,textAlign:"center",margin:"0 0 24px"}}>{email}</p>
-              <div style={{marginBottom:16}}>
-                <label style={labelSt}>New Password</label>
-                <div style={{position:"relative"}}>
-                  <input type={showNew?"text":"password"} placeholder="Minimum 8 characters" value={newPassword}
-                    onChange={e=>{setNewPassword(e.target.value);setError("");}}
-                    style={{...inputStyle,paddingRight:52}}/>
-                  <button type="button" onClick={()=>setShowNew(!showNew)} style={pwToggle(showNew)}>{showNew?"HIDE":"SHOW"}</button>
-                </div>
-                <PwStrength password={newPassword}/>
-              </div>
-              <div style={{marginBottom:16}}>
-                <label style={labelSt}>Confirm Password</label>
-                <div style={{position:"relative"}}>
-                  <input type={showConf?"text":"password"} placeholder="Re-enter password" value={confirmPw}
-                    onChange={e=>{setConfirmPw(e.target.value);setError("");}}
-                    onKeyDown={e=>{if(e.key==="Enter"&&!loading)handleChangePassword();}}
-                    style={{...inputStyle,paddingRight:52,borderColor:confirmPw?(confirmPw===newPassword?OK:A2):BD}}/>
-                  <button type="button" onClick={()=>setShowConf(!showConf)} style={pwToggle(showConf)}>{showConf?"HIDE":"SHOW"}</button>
-                </div>
-                {confirmPw&&confirmPw!==newPassword&&<p style={{fontFamily:F1,fontSize:11,color:A2,marginTop:6,fontWeight:600}}>Passwords do not match</p>}
-                {confirmPw&&confirmPw===newPassword&&<p style={{fontFamily:F1,fontSize:11,color:OK,marginTop:6,fontWeight:600}}>✓ Passwords match</p>}
-              </div>
-              <div style={{padding:"12px 14px",marginBottom:16,background:BG,borderRadius:10,border:`1px solid ${BD}`}}>
-                <div style={{fontFamily:F2,fontSize:9,fontWeight:700,color:A,letterSpacing:2,marginBottom:8}}>REQUIREMENTS</div>
-                {[{ok:newPassword.length>=8,text:"At least 8 characters"},{ok:/[A-Z]/.test(newPassword),text:"One uppercase letter"},{ok:/[0-9]/.test(newPassword),text:"One number"}].map((r,i)=>(
-                  <div key={i} style={{display:"flex",gap:8,alignItems:"center",marginBottom:i<2?4:0}}>
-                    <span style={{fontSize:11,color:r.ok?OK:TD}}>{r.ok?"✓":"○"}</span>
-                    <span style={{fontFamily:F1,fontSize:11,color:r.ok?T:TD}}>{r.text}</span>
-                  </div>
-                ))}
-              </div>
-              <button onClick={handleChangePassword}
-                disabled={loading||newPassword.length<8||newPassword!==confirmPw}
-                style={{...btnPrimary,background:newPassword.length>=8&&newPassword===confirmPw?`linear-gradient(135deg,${OK},${A})`:BD,color:newPassword.length>=8&&newPassword===confirmPw?BG:TD,opacity:loading?0.7:1,cursor:loading||newPassword.length<8||newPassword!==confirmPw?"not-allowed":"pointer"}}>
-                {loading?"CHANGING PASSWORD...":"SET NEW PASSWORD"}
-              </button>
-            </div>
-          )}
-
-          {/* STEP 4 */}
-          {step===4&&(
             <div style={{textAlign:"center",animation:"fadeSlideUp 0.4s ease-out"}}>
               <div style={{width:88,height:88,borderRadius:"50%",background:`${OK}10`,border:`2px solid ${OK}35`,display:"grid",placeItems:"center",margin:"0 auto 28px",animation:"successPop 0.6s cubic-bezier(0.16,1,0.3,1) both"}}>
                 <span style={{fontSize:44,color:OK}}>✓</span>
               </div>
-              <h2 style={{fontFamily:F2,fontSize:24,fontWeight:800,color:T,margin:"0 0 10px"}}>Password Changed!</h2>
-              <p style={{color:TD,fontSize:14,fontFamily:F1,lineHeight:1.7,margin:"0 0 8px"}}>Your password has been updated for</p>
+              <h2 style={{fontFamily:F2,fontSize:22,fontWeight:800,color:T,margin:"0 0 10px"}}>Identity Verified!</h2>
+              <p style={{color:TD,fontSize:14,fontFamily:F1,lineHeight:1.7,margin:"0 0 8px"}}>A password reset link has been sent to</p>
               <p style={{color:A,fontSize:15,fontFamily:F1,fontWeight:700,margin:"0 0 32px"}}>{email}</p>
+              <div style={{textAlign:"left",padding:"20px 22px",background:BG,borderRadius:14,border:`1px solid ${BD}`,marginBottom:24}}>
+                <div style={{fontFamily:F2,fontSize:11,fontWeight:700,color:A,letterSpacing:2,marginBottom:14}}>WHAT TO DO NEXT</div>
+                {["Check your email for a password reset link","Click the link — it opens a Set New Password page","Enter your new password and you're done"].map((s,i)=>(
+                  <div key={i} style={{display:"flex",gap:12,alignItems:"flex-start",marginBottom:i<2?10:0}}>
+                    <span style={{fontFamily:F2,fontSize:10,fontWeight:800,color:OK,background:`${OK}15`,padding:"3px 8px",borderRadius:5,flexShrink:0}}>{i+1}</span>
+                    <span style={{fontFamily:F1,fontSize:13,color:TD,lineHeight:1.5}}>{s}</span>
+                  </div>
+                ))}
+              </div>
+              <p style={{color:TD,fontSize:11,fontFamily:F1,lineHeight:1.6,marginBottom:20,textAlign:"center"}}>
+                Check your <strong style={{color:T}}>Spam</strong> or <strong style={{color:T}}>Junk</strong> folder if you don't see it within 2 minutes.
+              </p>
               <a href="#/" style={{display:"block",padding:16,background:`linear-gradient(135deg,${OK},${A})`,borderRadius:12,color:BG,fontFamily:F1,fontWeight:800,fontSize:15,textDecoration:"none",textAlign:"center",letterSpacing:1.5}}>
                 GO TO EASY EXPRESS
               </a>

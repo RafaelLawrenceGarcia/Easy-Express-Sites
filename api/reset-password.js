@@ -64,9 +64,14 @@ export default async function handler(req, res) {
       headers: { "Content-Type": "application/json", "X-SecretKey": SECRET_KEY },
       body: JSON.stringify({ PlayFabId: playFabId, Password: newPassword })
     });
-    const resetData = await resetRes.json();
-    if (resetData.code !== 200)
-      return res.status(400).json({ error: resetData.errorMessage || "Password reset failed." });
+    // PlayFab returns empty body on success for this endpoint
+    const resetText = await resetRes.text();
+    if (!resetRes.ok && resetText) {
+      let errMsg = "Password reset failed.";
+      try { errMsg = JSON.parse(resetText).errorMessage || errMsg; } catch(e) {}
+      return res.status(400).json({ error: errMsg });
+    }
+    // Empty body or ok = success
   } catch (e) {
     return res.status(500).json({ error: "Reset failed: " + e.message });
   }

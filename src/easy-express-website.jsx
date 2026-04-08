@@ -1664,8 +1664,18 @@ export default function EasyExpressSite() {
 
   // Handle PayMongo redirect back after payment
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const paymentStatus = params.get("payment");
+  const ticket = localStorage.getItem("ee_session_ticket");
+  if (ticket) {
+    checkFullGameOwnership(ticket).then(owned => {
+      if (owned) setOwnsGame(true);
+    }).catch(() => {});
+  }
+}, []);
+
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+  const paymentStatus = params.get("payment");
+  // ... rest of existing code
 
     if (paymentStatus === "success") {
   window.history.replaceState({}, "", window.location.pathname + window.location.hash);

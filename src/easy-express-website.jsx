@@ -3,7 +3,7 @@ import { registerUser, loginWithEmail, loginWithUsername, executeCloudScript } f
 import { sendOTPEmail } from './email';
 import emailjs from '@emailjs/browser';
 import { fetchTitleData } from './playfab';
-
+  
 /* ═══════════════════════════════════════════
    ERROR BOUNDARY
    ═══════════════════════════════════════════ */
@@ -99,8 +99,8 @@ const FAQS = [
 
 const GALLERY_ITEMS = [
   { type: "screenshot", title: "Shop Interior", desc: "Your fully customizable PC shop floor with workstations and customer counter.", src: "/gallery/Shopinterior.png" },
-  { type: "screenshot", title: "PC Assembly", desc: "Hands-on component installation — CPU, RAM, GPU, all in first-person.", src: "/gallery/YourNewImageName.png" }, // ✅ Point this to the correct image
-  { type: "video", title: "Gameplay Trailer", desc: "Watch a full walkthrough of the Easy Express beta experience.", src: "/gallery/Trailer.mov" },
+  { type: "screenshot", title: "PC Assembly", desc: "Hands-on component installation — CPU, RAM, GPU, all in first-person.", src: "/gallery/Diagnose.png" },
+  { type: "video", title: "Gameplay Trailer", desc: "Watch a full walkthrough of the Easy Express beta experience.", src: "/gallery/Trailer.mp4" },
 ];
 
 /* ═══════════════════════════════════════════
@@ -519,6 +519,11 @@ function Scenarios() {
 }
 
 function GallerySection() {
+  const [playingVideo, setPlayingVideo] = useState(null);
+  const modalVideoRef = useRef(null);
+
+  const closeModal = () => setPlayingVideo(null);
+
   return (
     <section id="gallery" style={{ padding: "100px clamp(1rem,4vw,3rem)", maxWidth: 1200, margin: "0 auto" }}>
       <div className="ee-reveal" style={{ textAlign: "center", marginBottom: 64 }}>
@@ -526,13 +531,26 @@ function GallerySection() {
         <h2 style={{ fontFamily: F2, fontSize: "clamp(1.8rem,4vw,2.5rem)", fontWeight: 800, color: T, margin: "12px 0 16px" }}>Gallery</h2>
         <p style={{ color: TD, maxWidth: 520, margin: "0 auto", lineHeight: 1.7, fontFamily: F1, fontSize: 15 }}>Screenshots and footage from the Easy Express beta. See the shop, the builds, and the chaos.</p>
       </div>
+
       <div className="ee-grid-4" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 20 }}>
         {GALLERY_ITEMS.map((item, i) => (
           <div key={i} className="ee-reveal ee-stagger ee-gallery-hover" style={{ "--stagger": i, background: CARD, border: `1px solid ${BD}`, borderRadius: 14, overflow: "hidden" }}>
-            <div className="ee-gallery-thumb" style={{ height: 180, background: `linear-gradient(135deg, ${BG}, ${CARD2})`, display: "grid", placeItems: "center", borderBottom: `1px solid ${BD}`, position: "relative" }}>
-              <span style={{ fontSize: 48, opacity: 0.3 }}>{item.type === "video" ? "▶" : "🖼"}</span>
+            <div
+              className="ee-gallery-thumb"
+              onClick={() => { if (item.type === "video") setPlayingVideo(item.src); }}
+              style={{ height: 180, background: `linear-gradient(135deg, ${BG}, ${CARD2})`, borderBottom: `1px solid ${BD}`, position: "relative", overflow: "hidden", cursor: item.type === "video" ? "pointer" : "default" }}
+            >
+              {item.type === "video" ? (
+                <video src={item.src} style={{ width: "100%", height: "100%", objectFit: "cover" }} muted playsInline />
+              ) : (
+                <img src={item.src} alt={item.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              )}
               {item.type === "video" && (
-                <div style={{ position: "absolute", bottom: 10, right: 10, padding: "4px 10px", background: `${A2}cc`, borderRadius: 4, fontFamily: F1, fontSize: 10, fontWeight: 700, color: T, letterSpacing: 1 }}>VIDEO</div>
+                <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", background: "rgba(0,0,0,0.4)" }}>
+                  <div style={{ width: 64, height: 64, borderRadius: "50%", background: `${A}cc`, display: "grid", placeItems: "center" }}>
+                    <span style={{ fontSize: 28, color: BG, marginLeft: 4 }}>▶</span>
+                  </div>
+                </div>
               )}
             </div>
             <div style={{ padding: "20px 20px 24px" }}>
@@ -542,13 +560,46 @@ function GallerySection() {
           </div>
         ))}
       </div>
-      <p style={{ textAlign: "center", fontFamily: F1, fontSize: 12, color: TD, marginTop: 24 }}>
-        Replace these placeholders with actual screenshots by dropping images into your <span style={{ color: A }}>public/gallery/</span> folder.
-      </p>
+
+      {/* Video Player Modal */}
+      {playingVideo && (
+        <div
+          onClick={closeModal}
+          style={{
+            position: "fixed", inset: 0, zIndex: 300,
+            background: "rgba(0,0,0,0.92)", display: "grid", placeItems: "center",
+            cursor: "pointer", animation: "fadeIn 0.3s ease-out",
+          }}
+        >
+          <div onClick={(e) => e.stopPropagation()} style={{ width: "90%", maxWidth: 900, position: "relative" }}>
+            <button
+              onClick={closeModal}
+              style={{
+                position: "absolute", top: -44, right: 0,
+                background: "none", border: "none", color: T,
+                fontSize: 28, cursor: "pointer", fontFamily: F1, lineHeight: 1,
+              }}
+            >✕</button>
+            <video
+              ref={modalVideoRef}
+              key={playingVideo}
+              src={playingVideo}
+              controls
+              onLoadedMetadata={() => {
+                if (modalVideoRef.current) {
+                  modalVideoRef.current.muted = false;
+                  modalVideoRef.current.volume = 1;
+                }
+              }}
+              style={{ width: "100%", borderRadius: 12, boxShadow: `0 0 60px ${A}20`, display: "block" }}
+            />
+          </div>
+        </div>
+      )}
     </section>
   );
 }
-
+  
 function NewsSection({ liveNews }) {
   const displayNews = liveNews && liveNews.length > 0 ? liveNews : NEWS;
   return (

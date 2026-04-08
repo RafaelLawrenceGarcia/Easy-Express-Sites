@@ -78,23 +78,30 @@ export default function ResetPasswordPage() {
   const handleOtpPaste = (e) => { e.preventDefault();const p=e.clipboardData.getData("text").replace(/\D/g,"").slice(0,6);if(p.length===6){setOtpCode(p.split(""));if(otpRefs.current[5])otpRefs.current[5].focus();} };
 
   const handleVerifyOTP = async () => {
-    const code = otpCode.join("");
-    if (code.length < 6) { setError("Enter the full 6-digit code."); return; }
-    setLoading(true); setError("");
-    try {
-      const r = await runCloudScript(ticket, "verifyPasswordResetOTPOnly", { email: email.trim().toLowerCase(), code });
-      if (!r.FunctionResult?.success) throw new Error(r.FunctionResult?.error || "Invalid or expired code.");
-      // Send PlayFab recovery email
-      const recoveryRes = await fetch(`${BASE_URL}/Client/SendAccountRecoveryEmail`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ TitleId: TITLE_ID, Email: email.trim().toLowerCase(), EmailTemplateId: "E9E106DF609D5116" })
-      });
-      const recoveryJson = await recoveryRes.json();
-      if (recoveryJson.code !== 200) throw new Error(recoveryJson.errorMessage || "Failed to send reset email.");
-      setLoading(false); setStep(3);
-    } catch (err) { setLoading(false); setError(err.message); }
-  };
+  const code = otpCode.join("");
+  if (code.length < 6) { setError("Enter the full 6-digit code."); return; }
+  setLoading(true); setError("");
+  try {
+    const r = await runCloudScript(ticket, "verifyPasswordResetOTPOnly", { 
+      email: email.trim().toLowerCase(), code 
+    });
+    if (!r.FunctionResult?.success) throw new Error(r.FunctionResult?.error || "Invalid or expired code.");
+    
+    // Send PlayFab's native recovery email (links to their hosted reset page)
+    const recoveryRes = await fetch(`${BASE_URL}/Client/SendAccountRecoveryEmail`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ 
+        TitleId: TITLE_ID, 
+        Email: email.trim().toLowerCase()
+        // NO EmailTemplateId — use PlayFab's default which links to their hosted page
+      })
+    });
+    const recoveryJson = await recoveryRes.json();
+    if (recoveryJson.code !== 200) throw new Error(recoveryJson.errorMessage || "Failed to send reset email.");
+    setLoading(false); setStep(3);
+  } catch (err) { setLoading(false); setError(err.message); }
+};
 
   const stepLabels = ["Email","Verify","Done"];
   const Steps = () => (

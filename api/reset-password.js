@@ -7,7 +7,7 @@ export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   const { token, newPassword } = req.body;
-  const SECRET_KEY = process.env.PLAYFAB_SECRET_KEY;
+  const SECRET_KEY = "PET85EEPFDZA9GGDUSMTPBS58UZXFZWFGIUQ9AQMMPSFHWN51C";
   const TITLE_ID   = "164227";
   const BASE       = `https://${TITLE_ID}.playfabapi.com`;
 

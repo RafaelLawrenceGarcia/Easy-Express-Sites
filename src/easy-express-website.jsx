@@ -1239,15 +1239,17 @@ export default function EasyExpressSite() {
 
   useEffect(() => {
     async function fetchLiveNews() {
-      try { const titleData = await fetchTitleData(["GameNews"]); if (titleData.GameNews) setLiveNews(JSON.parse(titleData.GameNews)); } catch (e) { console.error("Failed to load live news:", e); }
+      try { 
+        const titleData = await fetchTitleData(["GameNews"]); 
+        // Checks if GameNews exists AND isn't just an empty space before parsing
+        if (titleData.GameNews && titleData.GameNews.trim() !== "") {
+          setLiveNews(JSON.parse(titleData.GameNews)); 
+        }
+      } catch (e) { 
+        console.error("Failed to load live news:", e); 
+      }
     }
     fetchLiveNews();
-  }, []);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver((entries) => { entries.forEach((entry) => { if (entry.isIntersecting) setActiveSection(entry.target.id); }); }, { threshold: 0.3 });
-    ["features", "scenarios", "gallery", "news", "leaderboards", "specs", "faq", "support", "about"].forEach((id) => { const el = document.getElementById(id); if (el) observer.observe(el); });
-    return () => observer.disconnect();
   }, []);
 
   useScrollReveal();

@@ -925,7 +925,7 @@ function CheckoutModal({ onClose, onSuccess, addToast, sessionTicket, playFabId 
   const [gcashNumber, setGcashNumber] = useState("");
   const [error, setError] = useState("");
 
-  const PRICE = "1.00";
+  const PRICE = "299.00";
   const GAME_TITLE = "Easy Express — Full Game";
 
   const inputStyle = {

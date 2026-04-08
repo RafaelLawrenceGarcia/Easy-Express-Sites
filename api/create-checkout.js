@@ -41,7 +41,7 @@ export default async function handler(req, res) {
         line_items: [
           {
             currency: "PHP",
-            amount: 100, // ₱299.00 in centavos (PayMongo requires integers)
+            amount: 29900, // ₱299.00 in centavos (PayMongo requires integers)
             name: "Easy Express — Full Game",
             description: "Full game license. One-time purchase. All future updates included.",
             quantity: 1,

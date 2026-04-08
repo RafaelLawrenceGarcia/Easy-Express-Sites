@@ -41,8 +41,8 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Auth check failed: " + e.message });
   }
 
-  // 2 — Look up account by email
-  let playFabId;
+  // 2 — Look up account by email, get both PlayFabId and Username
+  let playFabId, username;
   try {
     const lookupRes = await fetch(`${BASE}/Admin/GetUserAccountInfo`, {
       method: "POST",
@@ -53,25 +53,29 @@ export default async function handler(req, res) {
     if (lookupData.code !== 200)
       return res.status(400).json({ error: "No account found with that email." });
     playFabId = lookupData.data.UserInfo.PlayFabId;
+    username  = lookupData.data.UserInfo.Username;
   } catch (e) {
     return res.status(500).json({ error: "Account lookup failed: " + e.message });
   }
 
-  // 3 — Reset password
+  // 3 — Reset password — try Username first, fall back to PlayFabId
   try {
+    const resetBody = username
+      ? { Username: username, Password: newPassword }
+      : { PlayFabId: playFabId, Password: newPassword };
     const resetRes = await fetch(`${BASE}/Admin/ResetUserPassword`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-SecretKey": SECRET_KEY },
-      body: JSON.stringify({ PlayFabId: playFabId, Password: newPassword })
+      body: JSON.stringify(resetBody)
     });
-    // PlayFab returns empty body on success for this endpoint
     const resetText = await resetRes.text();
-    if (!resetRes.ok && resetText) {
-      let errMsg = "Password reset failed.";
-      try { errMsg = JSON.parse(resetText).errorMessage || errMsg; } catch(e) {}
-      return res.status(400).json({ error: errMsg });
+    // Success = 200 status (body may be empty or JSON)
+    if (resetRes.status !== 200) {
+      let errMsg = `HTTP ${resetRes.status}`;
+      try { errMsg = JSON.parse(resetText).errorMessage || errMsg; } catch(e) { errMsg = resetText || errMsg; }
+      return res.status(400).json({ error: "Reset failed: " + errMsg });
     }
-    // Empty body or ok = success
+    // 200 = success, fall through
   } catch (e) {
     return res.status(500).json({ error: "Reset failed: " + e.message });
   }

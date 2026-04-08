@@ -95,11 +95,11 @@ export default function ResetPasswordPage() {
       const r = await runCloudScript(ticket, "verifyPasswordResetOTPOnly", { email: email.trim().toLowerCase(), code });
       if (!r.FunctionResult?.success) throw new Error(r.FunctionResult?.error || "Invalid or expired code.");
 
-      // OTP verified — send PlayFab recovery email (no template ID = default reset template)
+      // OTP verified — send PlayFab recovery email using Account recovery template
       const recoveryRes = await fetch(`${BASE_URL}/Client/SendAccountRecoveryEmail`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ TitleId: TITLE_ID, Email: email.trim().toLowerCase() })
+        body: JSON.stringify({ TitleId: TITLE_ID, Email: email.trim().toLowerCase(), EmailTemplateId: "E9E106DF609D5116" })
       });
       const recoveryJson = await recoveryRes.json();
       if (recoveryJson.code !== 200) throw new Error(recoveryJson.errorMessage || "Failed to send reset email.");

@@ -43,7 +43,7 @@ function formatDate(isoStr) {
 }
 
 function formatAmount(centavos) {
-  if (!centavos) return "₱299.00";
+  if (!centavos) return "1.00";
   const pesos = parseInt(centavos, 10) / 100;
   return `₱${pesos.toFixed(2)}`;
 }

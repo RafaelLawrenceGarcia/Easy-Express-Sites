@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import EasyExpressSite from './easy-express-website';
-import ResetPasswordPage from './Resetpasswordpage';
+import ResetPasswordPage from './ResetPasswordPage';
 
 export default function App() {
   const [route, setRoute] = useState(window.location.hash);

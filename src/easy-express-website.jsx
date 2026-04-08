@@ -1649,29 +1649,24 @@ export default function EasyExpressSite() {
 
   // Fetch live news on mount
   useEffect(() => {
-    async function fetchLiveNews() {
-      try {
-        const titleData = await fetchTitleData(["GameNews"]);
-        if (titleData.GameNews && titleData.GameNews.trim() !== "") {
-          setLiveNews(JSON.parse(titleData.GameNews));
-        }
-      } catch (e) {
-        console.error("Failed to load live news:", e);
+  let isFetching = false;
+  async function fetchLiveNews() {
+    if (isFetching) return;
+    isFetching = true;
+    try {
+      const titleData = await fetchTitleData(["GameNews"]);
+      if (titleData.GameNews && titleData.GameNews.trim() !== "") {
+        setLiveNews(JSON.parse(titleData.GameNews));
       }
+    } catch (e) {
+      console.error("Failed to load live news:", e);
+    } finally {
+      isFetching = false;
     }
-    fetchLiveNews();
-    const interval = setInterval(fetchLiveNews, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Handle PayMongo redirect back after payment
-  useEffect(() => {
-  const ticket = localStorage.getItem("ee_session_ticket");
-  if (ticket) {
-    checkFullGameOwnership(ticket).then(owned => {
-      if (owned) setOwnsGame(true);
-    }).catch(() => {});
   }
+  fetchLiveNews();
+  const interval = setInterval(fetchLiveNews, 60000);
+  return () => clearInterval(interval);
 }, []);
 
 useEffect(() => {

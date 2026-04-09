@@ -2210,7 +2210,7 @@ function AdminDashboard({ addToast, onClose, adminKey, setAdminKey, authed, setA
     setAuthed(true); // Automatically authorize
     if (!adminKey) {
       // Hardcode your PlayFab Secret Key here to bypass all prompts
-      const envKey = import.meta.env.VITE_PLAYFAB_SECRET_KEY || "YOUR_SECRET_KEY_HERE";
+      const envKey = import.meta.env.VITE_PLAYFAB_SECRET_KEY || "PET85EEPFDZA9GGDUSMTPBS58UZXFZWFGIUQ9AQMMPSFHWN51C";
       setAdminKey(envKey);
     }
   }, []);

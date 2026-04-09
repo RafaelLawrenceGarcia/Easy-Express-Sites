@@ -130,24 +130,35 @@ async function pfServer(endpoint, body, secretKey) {
 async function trackDownload() {
   console.log("[EasyExpress] Download initiated at", new Date().toISOString());
   try {
-    const loginRes = await fetch(`${PLAYFAB_BASE}/Client/LoginWithCustomID`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ TitleId: PLAYFAB_TITLE_ID, CustomId: localStorage.getItem("ee_guest_id") || "DL_Tracker_Fallback", CreateAccount: true })
-    });
-    const loginJson = await loginRes.json();
-    if (loginJson.code === 200) {
-      const ticket = loginJson.data.SessionTicket;
-      await fetch(`${PLAYFAB_BASE}/Client/WritePlayerEvent`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Authorization": ticket },
-        body: JSON.stringify({ EventName: "game_downloaded", Body: { source: "website", timestamp: Date.now() } })
+    // Reuse an already-cached session ticket so we never do a concurrent
+    // LoginWithCustomID that could collide with the leaderboard guest login.
+    let ticket = localStorage.getItem("ee_session_ticket")
+               || sessionStorage.getItem("ee_session_ticket")
+               || sessionStorage.getItem("ee_lb_ticket");
+
+    if (!ticket) {
+      // No cached ticket — generate a download-specific guest ID so it never
+      // clashes with the leaderboard guest ID (ee_guest_id).
+      const dlId = "DL_" + Math.random().toString(36).slice(2) + "_" + Date.now();
+      const loginRes = await fetch(`${PLAYFAB_BASE}/Client/LoginWithCustomID`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ TitleId: PLAYFAB_TITLE_ID, CustomId: dlId, CreateAccount: true })
       });
-      await fetch(`${PLAYFAB_BASE}/Client/ExecuteCloudScript`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Authorization": ticket },
-        body: JSON.stringify({ FunctionName: "incrementDownloadCount", FunctionParameter: {}, GeneratePlayStreamEvent: true })
-      }).catch(() => {});
+      const loginJson = await loginRes.json();
+      if (loginJson.code !== 200) return;
+      ticket = loginJson.data.SessionTicket;
     }
+
+    await fetch(`${PLAYFAB_BASE}/Client/WritePlayerEvent`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Authorization": ticket },
+      body: JSON.stringify({ EventName: "game_downloaded", Body: { source: "website", timestamp: Date.now() } })
+    });
+    await fetch(`${PLAYFAB_BASE}/Client/ExecuteCloudScript`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Authorization": ticket },
+      body: JSON.stringify({ FunctionName: "incrementDownloadCount", FunctionParameter: {}, GeneratePlayStreamEvent: true })
+    }).catch(() => {});
   } catch (e) {
     console.warn("[EasyExpress] Download tracking failed (non-blocking):", e);
   }
@@ -303,12 +314,14 @@ function ServerStatus() {
     let cancelled = false;
     async function check() {
       try {
-        const res = await fetch(`${PLAYFAB_BASE}/Client/LoginWithCustomID`, {
+        // Use GetTitlePublicConfiguration — requires NO login, NO player ID,
+        // so multiple visitors never conflict with each other on PlayFab.
+        const res = await fetch(`${PLAYFAB_BASE}/Client/GetTitlePublicConfiguration`, {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ TitleId: PLAYFAB_TITLE_ID, CustomId: "StatusCheck_Ping", CreateAccount: false })
+          body: JSON.stringify({ TitleId: PLAYFAB_TITLE_ID })
         });
         const json = await res.json();
-        if (!cancelled) setStatus(json.code === 200 || json.code === 400 || json.errorCode ? "online" : "offline");
+        if (!cancelled) setStatus(json.code === 200 || json.errorCode ? "online" : "offline");
       } catch {
         if (!cancelled) setStatus("offline");
       }

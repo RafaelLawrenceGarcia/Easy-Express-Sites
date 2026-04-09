@@ -827,38 +827,26 @@ function PublicLeaderboards({ sessionTicket: propTicket, currentUser }) {
   const isLoggedIn = !!propTicket;
 
   // ── Guest login if needed ──────────────────────────────────────────────────
-  useEffect(() => {
-    if (sessionTicket) return;
-    let cancelled = false;
-    async function silentLogin(attempt = 0) {
-      let guestId = localStorage.getItem("ee_guest_id");
-      if (!guestId) {
-        guestId = "WebGuest_" + Math.random().toString(36).slice(2) + Date.now();
-        localStorage.setItem("ee_guest_id", guestId);
+  // Refresh banned list every 30 seconds and re-filter
+useEffect(() => {
+  if (!sessionTicket) return;
+  const interval = setInterval(async () => {
+    try {
+      const tdRes = await fetch(`https://${PLAYFAB_TITLE_ID}.playfabapi.com/Client/GetTitleData`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Authorization": sessionTicket },
+        body: JSON.stringify({ Keys: ["BannedPlayers"] })
+      });
+      const tdJson = await tdRes.json();
+      if (tdJson.code === 200 && tdJson.data?.Data?.BannedPlayers) {
+        const banned = JSON.parse(tdJson.data.Data.BannedPlayers);
+        setBannedIds(banned);
+        setLeaderboard(prev => prev.filter(p => !banned.includes(p.PlayFabId)));
       }
-      try {
-        const loginRes = await fetch(
-          `https://${PLAYFAB_TITLE_ID}.playfabapi.com/Client/LoginWithCustomID`,
-          { method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ TitleId: PLAYFAB_TITLE_ID, CustomId: guestId, CreateAccount: true }) }
-        );
-        const loginJson = await loginRes.json();
-        if (cancelled) return;
-        if (loginJson.code === 200) {
-          sessionStorage.setItem("ee_lb_ticket", loginJson.data.SessionTicket);
-          setSessionTicket(loginJson.data.SessionTicket);
-        } else if (loginJson.errorCode === 1227 && attempt < 3) {
-          setTimeout(() => silentLogin(attempt + 1), 800 + Math.random() * 600);
-        } else {
-          if (!cancelled) { setError(`Login Failed: ${loginJson.errorMessage}`); setIsLoading(false); }
-        }
-      } catch (e) {
-        if (!cancelled) { setError(`Network Error: ${e.message}`); setIsLoading(false); }
-      }
-    }
-    const t = setTimeout(() => silentLogin(), Math.random() * 400);
-    return () => { cancelled = true; clearTimeout(t); };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    } catch {}
+  }, 30000);
+  return () => clearInterval(interval);
+}, [sessionTicket]);
 
   useEffect(() => {
     if (propTicket && propTicket !== sessionTicket) setSessionTicket(propTicket);
@@ -2288,6 +2276,7 @@ function AdminDashboard({ addToast, onClose, adminKey, setAdminKey, authed, setA
       } catch {}
       if (!bannedList.includes(searchResult.id)) bannedList.push(searchResult.id);
       await pfAdmin("SetTitleData", { Key: "BannedPlayers", Value: JSON.stringify(bannedList) }, adminKey);
+      setBannedIds(bannedList);
       // ────────────────────────────────────────────────
 
       const durationLabel = BAN_DURATIONS.find(d => d.value === banDuration)?.label || banDuration;

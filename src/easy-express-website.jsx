@@ -583,6 +583,26 @@ function GallerySection() {
   
 function NewsSection({ liveNews }) {
   const displayNews = liveNews && liveNews.length > 0 ? liveNews : NEWS;
+
+  // Re-observe reveal elements whenever the news list changes.
+  // useScrollReveal only runs once on mount, so dynamically added items
+  // (e.g. from the admin panel) would stay invisible without this.
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("ee-visible");
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.1, rootMargin: "0px 0px -20px 0px" }
+    );
+    // Only target cards inside the news section
+    document.querySelectorAll("#news .ee-reveal").forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, [displayNews]);
   return (
     <section id="news" style={{ padding: "100px clamp(1rem,4vw,3rem)", maxWidth: 1200, margin: "0 auto" }}>
       <div className="ee-reveal" style={{ textAlign: "center", marginBottom: 64 }}>
@@ -611,27 +631,59 @@ function NewsSection({ liveNews }) {
   );
 }
 
-function PublicLeaderboards() {
+function PublicLeaderboards({ sessionTicket: propTicket }) {
   const [leaderboard, setLeaderboard] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [sessionTicket, setSessionTicket] = useState(null);
+  const [sessionTicket, setSessionTicket] = useState(
+    // Prefer: prop ticket (logged-in user) > cached lb ticket > null
+    () => propTicket || sessionStorage.getItem("ee_lb_ticket") || null
+  );
 
   useEffect(() => {
-    async function silentLogin() {
+    // If we already have a ticket (logged-in user or cached), skip the guest login entirely
+    if (sessionTicket) return;
+
+    let cancelled = false;
+    async function silentLogin(attempt = 0) {
       let guestId = localStorage.getItem("ee_guest_id");
-      if (!guestId) { guestId = "WebGuest_" + Math.random().toString(36).slice(2) + Date.now(); localStorage.setItem("ee_guest_id", guestId); }
-      const cachedTicket = sessionStorage.getItem("ee_lb_ticket");
-      if (cachedTicket) { setSessionTicket(cachedTicket); return; }
+      if (!guestId) {
+        guestId = "WebGuest_" + Math.random().toString(36).slice(2) + Date.now();
+        localStorage.setItem("ee_guest_id", guestId);
+      }
       try {
-        const loginRes = await fetch(`https://${PLAYFAB_TITLE_ID}.playfabapi.com/Client/LoginWithCustomID`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ TitleId: PLAYFAB_TITLE_ID, CustomId: guestId, CreateAccount: true }) });
+        const loginRes = await fetch(
+          `https://${PLAYFAB_TITLE_ID}.playfabapi.com/Client/LoginWithCustomID`,
+          { method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ TitleId: PLAYFAB_TITLE_ID, CustomId: guestId, CreateAccount: true }) }
+        );
         const loginJson = await loginRes.json();
-        if (loginJson.code === 200) { setSessionTicket(loginJson.data.SessionTicket); sessionStorage.setItem("ee_lb_ticket", loginJson.data.SessionTicket); }
-        else setError(`Login Failed: ${loginJson.errorMessage}`);
-      } catch (e) { setError(`Login Network Error: ${e.message}`); }
+        if (cancelled) return;
+        if (loginJson.code === 200) {
+          sessionStorage.setItem("ee_lb_ticket", loginJson.data.SessionTicket);
+          setSessionTicket(loginJson.data.SessionTicket);
+        } else if (loginJson.errorCode === 1227 && attempt < 3) {
+          // Concurrency conflict — back off and retry with jitter
+          setTimeout(() => silentLogin(attempt + 1), 800 + Math.random() * 600);
+        } else {
+          if (!cancelled) setError(`Login Failed: ${loginJson.errorMessage}`);
+          if (!cancelled) setIsLoading(false);
+        }
+      } catch (e) {
+        if (!cancelled) { setError(`Network Error: ${e.message}`); setIsLoading(false); }
+      }
     }
-    silentLogin();
-  }, []);
+
+    // Stagger guest logins by a random 0–400 ms so two simultaneous visitors don't collide
+    const delay = Math.random() * 400;
+    const t = setTimeout(() => silentLogin(), delay);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // If the parent passes a fresh logged-in ticket after mount, use it
+  useEffect(() => {
+    if (propTicket && propTicket !== sessionTicket) setSessionTicket(propTicket);
+  }, [propTicket]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!sessionTicket) return;
@@ -920,9 +972,7 @@ function OtpView({ formData, otpCode, setOtpCode, otpRefs, handleVerifyOTP, hand
    ═══════════════════════════════════════════ */
 function CheckoutModal({ onClose, onSuccess, addToast, sessionTicket, playFabId }) {
   const [step, setStep] = useState(1);
-  const [method, setMethod] = useState(null);
-  const [cardData, setCardData] = useState({ name: "", number: "", expiry: "", cvv: "" });
-  const [gcashNumber, setGcashNumber] = useState("");
+  const [method] = useState("qrph");  // QRPH only — GCash and Card removed
   const [error, setError] = useState("");
 
   const PRICE = "299.00";
@@ -941,29 +991,9 @@ function CheckoutModal({ onClose, onSuccess, addToast, sessionTicket, playFabId 
     fontFamily: F1, textTransform: "uppercase",
   };
 
-  const formatCardNumber = (v) => v.replace(/\D/g, "").slice(0, 16).replace(/(.{4})/g, "$1 ").trim();
-  const formatExpiry = (v) => { const d = v.replace(/\D/g, "").slice(0, 4); return d.length >= 3 ? d.slice(0, 2) + "/" + d.slice(2) : d; };
-
   const handleProceed = async () => {
     setError("");
-    if (!method) { setError("Please select a payment method."); return; }
-    if (method === "gcash") {
-      if (!/^09\d{9}$/.test(gcashNumber.replace(/\s/g, ""))) {
-        setError("Enter a valid GCash number (e.g. 09XXXXXXXXX).");
-        return;
-      }
-    }
-    if (method === "card") {
-      if (!cardData.name.trim()) { setError("Enter the cardholder name."); return; }
-      if (cardData.number.replace(/\s/g, "").length < 16) { setError("Enter a valid 16-digit card number."); return; }
-      if (cardData.expiry.length < 5) { setError("Enter a valid expiry date (MM/YY)."); return; }
-      if (cardData.cvv.length < 3) { setError("Enter a valid CVV."); return; }
-    }
-    if (!playFabId) {
-      setError("Account error. Please log out and log back in.");
-      return;
-    }
-
+    if (!playFabId) { setError("Account error. Please log out and log back in."); return; }
     setStep(3);
 
     try {
@@ -1037,87 +1067,36 @@ function CheckoutModal({ onClose, onSuccess, addToast, sessionTicket, playFabId 
           {(step === 1 || step === 2) && (
             <div style={{ animation: "fadeSlideUp 0.3s ease-out" }}>
               <h2 style={{ fontFamily: F2, fontSize: 19, fontWeight: 800, color: T, margin: "0 0 4px" }}>Complete Purchase</h2>
-              <p style={{ color: TD, fontSize: 12, fontFamily: F1, margin: "0 0 24px" }}>Select your payment method to unlock the full game.</p>
+              <p style={{ color: TD, fontSize: 12, fontFamily: F1, margin: "0 0 24px" }}>Pay securely using QR Ph. Open any banking app or e-wallet that supports InstaPay QR.</p>
               {error && (
                 <div style={{ color: A2, fontSize: 12, marginBottom: 16, fontFamily: F1, padding: "10px 14px", background: `${A2}0a`, borderRadius: 10, border: `1px solid ${A2}25`, display: "flex", gap: 8, alignItems: "center" }}>
                   <span>⚠</span> {error}
                 </div>
               )}
-              <div style={{ marginBottom: 20 }}>
-                <label style={labelStyle}>Payment Method</label>
-                <div style={{ display: "flex", gap: 10 }}>
-                  {[
-                    { id: "qrph", label: "QRPh (Scan)", icon: "📷", color: OK },
-                    { id: "gcash", label: "GCash", icon: "📱", color: "#007AFF" },
-                    { id: "card", label: "Credit / Debit", icon: "💳", color: A },
-                  ].map(m => (
-                    <button
-                      key={m.id}
-                      onClick={() => { setMethod(m.id); setStep(2); setError(""); }}
-                      style={{
-                        flex: 1, padding: "14px 10px", borderRadius: 10, cursor: "pointer",
-                        background: method === m.id ? `${m.color}15` : BG,
-                        border: `2px solid ${method === m.id ? m.color : BD}`,
-                        display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
-                        transition: "all 0.25s",
-                      }}
-                    >
-                      <span style={{ fontSize: 24 }}>{m.icon}</span>
-                      <span style={{ fontFamily: F1, fontSize: 12, fontWeight: 700, color: method === m.id ? T : TD }}>{m.label}</span>
-                      {method === m.id && <span style={{ fontFamily: F2, fontSize: 8, color: m.color, letterSpacing: 1 }}>SELECTED</span>}
-                    </button>
-                  ))}
+
+              {/* QRPh info card */}
+              <div style={{ padding: "16px 18px", background: `${OK}08`, border: `1px solid ${OK}25`, borderRadius: 12, marginBottom: 20 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                  <span style={{ fontSize: 22 }}>📷</span>
+                  <div style={{ fontFamily: F1, fontSize: 13, fontWeight: 700, color: OK }}>QR Ph — InstaPay</div>
+                </div>
+                <div style={{ fontFamily: F1, fontSize: 12, color: TD, lineHeight: 1.6 }}>
+                  Works with <strong style={{ color: T }}>BDO, BPI, UnionBank, Maya, GCash, ShopeePay</strong> and all InstaPay-enabled apps. No card needed — just scan.
                 </div>
               </div>
 
-              {method === "gcash" && (
-                <div style={{ animation: "fadeSlideUp 0.25s ease-out", marginBottom: 16 }}>
-                  <div style={{ padding: "12px 14px", background: `#007AFF10`, border: `1px solid #007AFF30`, borderRadius: 10, marginBottom: 16 }}>
-                    <div style={{ fontFamily: F1, fontSize: 11, color: "#007AFF", fontWeight: 700, marginBottom: 2 }}>📱 GCash Instructions</div>
-                    <div style={{ fontFamily: F1, fontSize: 11, color: TD, lineHeight: 1.5 }}>Enter your registered GCash number. You will receive a payment prompt on your GCash app.</div>
-                  </div>
-                  <label style={labelStyle}>GCash Mobile Number</label>
-                  <input style={inputStyle} value={gcashNumber} onChange={e => { setGcashNumber(e.target.value.replace(/\D/g, "").slice(0, 11)); setError(""); }} placeholder="09XXXXXXXXX" maxLength={11} />
-                </div>
-              )}
-
-              {method === "card" && (
-                <div style={{ animation: "fadeSlideUp 0.25s ease-out", display: "flex", flexDirection: "column", gap: 14, marginBottom: 16 }}>
-                  <div>
-                    <label style={labelStyle}>Cardholder Name</label>
-                    <input style={inputStyle} value={cardData.name} onChange={e => { setCardData(p => ({ ...p, name: e.target.value })); setError(""); }} placeholder="Juan Dela Cruz" />
-                  </div>
-                  <div>
-                    <label style={labelStyle}>Card Number</label>
-                    <input style={inputStyle} value={cardData.number} onChange={e => { setCardData(p => ({ ...p, number: formatCardNumber(e.target.value) })); setError(""); }} placeholder="1234 5678 9012 3456" maxLength={19} />
-                  </div>
-                  <div style={{ display: "flex", gap: 12 }}>
-                    <div style={{ flex: 1 }}>
-                      <label style={labelStyle}>Expiry Date</label>
-                      <input style={inputStyle} value={cardData.expiry} onChange={e => { setCardData(p => ({ ...p, expiry: formatExpiry(e.target.value) })); setError(""); }} placeholder="MM/YY" maxLength={5} />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <label style={labelStyle}>CVV</label>
-                      <input style={{ ...inputStyle, letterSpacing: 4 }} value={cardData.cvv} onChange={e => { setCardData(p => ({ ...p, cvv: e.target.value.replace(/\D/g, "").slice(0, 4) })); setError(""); }} placeholder="•••" maxLength={4} type="password" />
-                    </div>
-                  </div>
-                </div>
-              )}
-
               <button
                 onClick={handleProceed}
-                disabled={!method}
+                className="ee-btn-glow"
                 style={{
                   width: "100%", padding: 14, marginTop: 8,
-                  background: method ? `linear-gradient(135deg,${PU},${A})` : BD,
-                  border: "none", borderRadius: 10,
-                  color: method ? BG : TD,
+                  background: `linear-gradient(135deg,${OK},${A})`,
+                  border: "none", borderRadius: 10, color: BG,
                   fontFamily: F1, fontWeight: 800, fontSize: 15,
-                  cursor: method ? "pointer" : "not-allowed",
-                  letterSpacing: 1, transition: "all 0.3s",
+                  cursor: "pointer", letterSpacing: 1,
                 }}
               >
-                {`PAY ${PRICE}`}
+                📷 PAY ₱{PRICE} VIA QR PH
               </button>
               <p style={{ color: TD, fontSize: 11, fontFamily: F1, textAlign: "center", marginTop: 12, lineHeight: 1.5 }}>
                 🔒 Secured by PayMongo. You will be redirected to complete payment.
@@ -1132,7 +1111,7 @@ function CheckoutModal({ onClose, onSuccess, addToast, sessionTicket, playFabId 
               </div>
               <h2 style={{ fontFamily: F2, fontSize: 20, fontWeight: 800, color: T, margin: "0 0 10px" }}>Processing Payment</h2>
               <p style={{ color: TD, fontSize: 13, fontFamily: F1, lineHeight: 1.6, marginBottom: 28 }}>
-                {method === "gcash" ? "Connecting to GCash..." : "Contacting payment gateway..."}<br />
+                {method === "qrph" ? "Generating QR code..." : "Contacting payment gateway..."}<br />
                 Please do not close this window.
               </p>
               <div style={{ height: 4, background: BD, borderRadius: 2, overflow: "hidden", maxWidth: 260, margin: "0 auto" }}>
@@ -1191,6 +1170,7 @@ function AuthModal({ mode, setMode, onClose, addToast, onLoginSuccess, liveNews 
   const [showPw, setShowPw] = useState(false);
   const [showConfirmPw, setShowConfirmPw] = useState(false);
   const [showLoginPw, setShowLoginPw] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const handleChange = (field) => (e) => { setFormData((p) => ({ ...p, [field]: e.target.value })); setError(""); };
   const inputStyle = { width: "100%", padding: "12px 14px", background: BG, border: `1px solid ${BD}`, borderRadius: 8, color: T, fontSize: 14, fontFamily: F1, outline: "none", transition: "border-color 0.3s", boxSizing: "border-box" };
   const labelStyle = { display: "block", marginBottom: 6, color: TD, fontSize: 11, fontWeight: 700, letterSpacing: 1.5, fontFamily: F1, textTransform: "uppercase" };
@@ -1244,7 +1224,13 @@ function AuthModal({ mode, setMode, onClose, addToast, onLoginSuccess, liveNews 
         : await loginWithUsername({ username: formData.email, password: formData.password });
       setSuccessType("login"); setShowSuccess(true);
       addToast({ type: "welcome", title: "Welcome Back!", message: "Launch the game to continue your shop.", duration: 5000 });
-      localStorage.setItem("ee_session_ticket", loginResult.SessionTicket);
+
+      // Task 2 — Remember Me: persist to localStorage (survives refresh) or sessionStorage (tab-scoped)
+      const store = rememberMe ? localStorage : sessionStorage;
+      store.setItem("ee_session_ticket", loginResult.SessionTicket);
+      store.setItem("ee_auth_pfid",      loginResult.PlayFabId);
+      store.setItem("ee_auth_username",  formData.email);
+
       if (onLoginSuccess) onLoginSuccess(formData.email, loginResult.SessionTicket, loginResult.PlayFabId);
     } catch (err) { setError(err.message); }
     setLoading(false);
@@ -1362,6 +1348,24 @@ function AuthModal({ mode, setMode, onClose, addToast, onLoginSuccess, liveNews 
                   </div>
                 </div>
               </div>
+              {/* Task 2 — Remember Me checkbox */}
+              <div
+                onClick={() => setRememberMe(r => !r)}
+                style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", marginTop: 4 }}
+              >
+                <div style={{
+                  width: 18, height: 18, borderRadius: 4, flexShrink: 0,
+                  background: rememberMe ? A : "transparent",
+                  border: `2px solid ${rememberMe ? A : BD}`,
+                  display: "grid", placeItems: "center",
+                  transition: "all 0.2s", color: BG, fontSize: 11, fontWeight: 800,
+                }}>
+                  {rememberMe ? "✓" : ""}
+                </div>
+                <span style={{ fontFamily: F1, fontSize: 12, color: TD, userSelect: "none" }}>
+                  Remember me on this device
+                </span>
+              </div>
               <button onClick={handleLogin} disabled={loading} className="ee-btn-glow" style={{ width: "100%", padding: 14, marginTop: 20, background: `linear-gradient(135deg,${A},#00b8d4)`, border: "none", borderRadius: 10, color: BG, fontFamily: F1, fontWeight: 800, fontSize: 15, cursor: "pointer", letterSpacing: 1, opacity: loading ? 0.7 : 1 }}>{loading ? "LOGGING IN..." : "LOG IN"}</button>
               <div style={{ marginTop: 20, padding: "12px 14px", background: BG, border: `1px solid ${BD}`, borderRadius: 10, display: "flex", gap: 10, alignItems: "flex-start" }}>
                 <span style={{ fontSize: 16, flexShrink: 0 }}>{"🎮"}</span>
@@ -1380,6 +1384,15 @@ function AuthModal({ mode, setMode, onClose, addToast, onLoginSuccess, liveNews 
    ADMIN DASHBOARD
    ═══════════════════════════════════════════════════════════ */
 function AdminDashboard({ addToast, onClose, adminKey, setAdminKey, authed, setAuthed, liveNews, onNewsUpdated }) {
+  // Admin bypass: AdminDashboard only ever renders when currentUser === "masteradmin",
+  // so we can unconditionally mark as authed and ensure the key is populated.
+  useEffect(() => {
+    if (!authed) setAuthed(true);
+    if (!adminKey) {
+      const envKey = import.meta.env.VITE_PLAYFAB_SECRET_KEY || "";
+      if (envKey) setAdminKey(envKey);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [activeTab, setActiveTab] = useState("players");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResult, setSearchResult] = useState(null);
@@ -1447,24 +1460,57 @@ function AdminDashboard({ addToast, onClose, adminKey, setAdminKey, authed, setA
   const addNewsItem = async () => { if (!newsTitle.trim() || !newsBody.trim()) { setNewsMsg("Fill in title and body."); return; } setNewsMsg("");
     const newItem = { id: Date.now(), type: newsType, date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }), title: newsTitle, desc: newsBody, color: newsType === "UPDATE" ? OK : newsType === "EVENT" ? WN : newsType === "PATCH" ? A : A2 };
     const updated = [newItem, ...displayNews];
-    try { await pfAdmin("SetTitleData", { Key: "GameNews", Value: JSON.stringify(updated) }, adminKey); onNewsUpdated(updated); setNewsTitle(""); setNewsBody("");
-    setNewsMsg("✅ News published!"); addToast({ type: "success", title: "News Published", message: newsTitle }); } catch (e) { setNewsMsg("❌ " + e.message); } };
+    // Optimistic update — reflect on site immediately, then persist to PlayFab
+    onNewsUpdated(updated); setNewsTitle(""); setNewsBody(""); setNewsMsg("✅ News published!");
+    addToast({ type: "success", title: "News Published", message: newsTitle });
+    try { await pfAdmin("SetTitleData", { Key: "GameNews", Value: JSON.stringify(updated) }, adminKey); }
+    catch (e) { setNewsMsg("⚠ Shown locally but PlayFab save failed: " + e.message); } };
   const deleteNewsItem = async (id) => { const updated = displayNews.filter(n => n.id !== id);
-    try { await pfAdmin("SetTitleData", { Key: "GameNews", Value: JSON.stringify(updated) }, adminKey); onNewsUpdated(updated);
-    addToast({ type: "info", title: "News Deleted", message: "Item removed." }); } catch (e) { setNewsMsg("❌ " + e.message); } };
+    // Optimistic update — remove immediately, then persist to PlayFab
+    onNewsUpdated(updated);
+    try { await pfAdmin("SetTitleData", { Key: "GameNews", Value: JSON.stringify(updated) }, adminKey);
+    addToast({ type: "info", title: "News Deleted", message: "Item removed." }); }
+    catch (e) { setNewsMsg("⚠ Removed locally but PlayFab save failed: " + e.message); } };
   const fetchLeaderboard = async () => { if (!lbStat) { setLbErr("Please enter a statistic name."); return; } setLbErr(""); setLbData([]);
     try { const res = await pfServer("GetLeaderboard", { StatisticName: lbStat, StartPosition: 0, MaxResultsCount: 100 }, adminKey); setLbData(res.Leaderboard || []);
     addToast({ type: "success", title: "Leaderboard Loaded", message: `Fetched top players for ${lbStat}` }); } catch (e) { setLbErr(e.message); } };
   const fetchLogs = async () => { setLogEntries([{ time: new Date().toLocaleString(), event: "System", msg: "PlayFab event logging requires Insights. Configure PlayStream rules in your dashboard." }, { time: "", event: "Tip", msg: "Use Admin/GetUserAccountInfo or Admin/GetPlayerStatistics for per-player auditing." }]);
     addToast({ type: "info", title: "Logs", message: "Event system info loaded." }); };
-  const loadRevenue = async () => { try { const res = await pfAdmin("GetTitleData", { Keys: ["GameRevenue"] }, adminKey);
-    if (res.Data?.GameRevenue) setGameRevenue(JSON.parse(res.Data.GameRevenue)); else setGameRevenue({ total: "0", donations: "0", note: "No revenue data yet." }); setRevenueLoaded(true);
-    } catch (e) { setRevenueMsg("❌ " + e.message); setGameRevenue({ total: "0", donations: "0", note: "" }); setRevenueLoaded(true); } };
-  const saveRevenue = async () => { setRevenueMsg(""); try { await pfAdmin("SetTitleData", { Key: "GameRevenue", Value: JSON.stringify(gameRevenue) }, adminKey);
-    setRevenueMsg("✅ Revenue data saved!"); addToast({ type: "success", title: "Revenue Updated", message: "Game revenue data saved." });
-    } catch (e) { setRevenueMsg("❌ " + e.message); } };
+  const loadRevenue = async () => {
+    setRevenueMsg(""); setRevenueLoaded(false);
+    try {
+      const td = await pfAdmin("GetTitleData", { Keys: ["GameRevenue"] }, adminKey);
+      if (td.Data?.GameRevenue) {
+        const parsed = JSON.parse(td.Data.GameRevenue);
+        const { donations: _d, ...rest } = parsed;   // drop old donations key
+        setGameRevenue({ total: rest.total || "0", purchases: rest.purchases || "0", note: rest.note || "" });
+      } else {
+        setGameRevenue({ total: "0", purchases: "0", note: "" });
+      }
+    } catch (e) {
+      // PlayFab unreachable or key missing — still show editable fields
+      setGameRevenue({ total: "0", purchases: "0", note: "" });
+      setRevenueMsg("⚠ Could not load from PlayFab (" + e.message + "). Enter values manually and click Save.");
+    }
+    setRevenueLoaded(true);
+  };
+  const saveRevenue = async () => {
+    setRevenueMsg("");
+    try {
+      await pfAdmin("SetTitleData", { Key: "GameRevenue", Value: JSON.stringify({ total: gameRevenue.total, purchases: gameRevenue.purchases, note: gameRevenue.note }) }, adminKey);
+      setRevenueMsg("✅ Saved to PlayFab!");
+      addToast({ type: "success", title: "Revenue Saved", message: `₱${gameRevenue.total} recorded.` });
+    } catch (e) {
+      setRevenueMsg("⚠ PlayFab save failed (" + e.message + "). Check VITE_PLAYFAB_SECRET_KEY in .env.local");
+    }
+  };
 
   const tabs = [{ id: "players", label: "👥 Players" },{ id: "news", label: "📰 News Editor" },{ id: "leaderboard", label: "🏆 Leaderboards" },{ id: "revenue", label: "💵 Revenue" },{ id: "logs", label: "📋 Event Logs" }];
+
+  // Auto-load revenue data when the revenue tab is opened
+  useEffect(() => {
+    if (activeTab === "revenue" && !revenueLoaded) loadRevenue();
+  }, [activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 200, background: `${BG}f5`, backdropFilter: "blur(8px)", overflowY: "auto", animation: "fadeIn 0.3s ease-out" }}>
       <div style={{ position: "sticky", top: 0, zIndex: 10, background: `${CARD}f0`, backdropFilter: "blur(16px)", borderBottom: `1px solid ${BD}`, padding: "0 clamp(1rem,4vw,3rem)", height: 56, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -1588,16 +1634,50 @@ function AdminDashboard({ addToast, onClose, adminKey, setAdminKey, authed, setA
 
           {activeTab === "revenue" && (
             <div style={{ animation: "fadeSlideUp 0.3s ease-out" }}>
-              <h3 style={{ fontFamily: F2, fontSize: 16, fontWeight: 700, color: T, margin: "0 0 20px" }}>Revenue Tracker</h3>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+                <h3 style={{ fontFamily: F2, fontSize: 16, fontWeight: 700, color: T, margin: 0 }}>Revenue Tracker</h3>
+                <button onClick={loadRevenue} style={{ padding: "8px 18px", background: `${A}15`, border: `1px solid ${A}30`, borderRadius: 8, color: A, fontFamily: F1, fontWeight: 700, fontSize: 12, cursor: "pointer", letterSpacing: 1 }}>↻ REFRESH</button>
+              </div>
               {!revenueLoaded ? (
-                <button onClick={loadRevenue} style={{ padding: "12px 24px", background: `linear-gradient(135deg,${A},#00b8d4)`, border: "none", borderRadius: 8, color: BG, fontFamily: F1, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>LOAD REVENUE DATA</button>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, color: TD, fontFamily: F1, fontSize: 13 }}>
+                  <div style={{ width: 16, height: 16, border: `2px solid ${A}`, borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+                  Loading revenue data...
+                </div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                  {gameRevenue && Object.entries(gameRevenue).map(([k, v]) => (
-                    <div key={k}><label style={labelStyle}>{k}</label><input style={inputStyle} value={v} onChange={e => setGameRevenue(prev => ({ ...prev, [k]: e.target.value }))} /></div>
-                  ))}
-                  {revenueMsg && <div style={{ fontFamily: F1, fontSize: 13, color: revenueMsg.startsWith("✅") ? OK : A2 }}>{revenueMsg}</div>}
-                  <button onClick={saveRevenue} style={{ alignSelf: "flex-start", padding: "10px 24px", background: `linear-gradient(135deg,${OK},${A})`, border: "none", borderRadius: 8, color: BG, fontFamily: F1, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>SAVE</button>
+                  {/* Summary cards */}
+                  <div className="ee-data-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 6 }}>
+                    <div style={{ padding: "20px 24px", background: BG, borderRadius: 12, border: `1px solid ${OK}25` }}>
+                      <div style={{ fontFamily: F1, fontSize: 10, color: TD, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 8 }}>Total Revenue</div>
+                      <div style={{ fontFamily: F2, fontSize: 26, fontWeight: 800, color: OK }}>
+                        ₱{parseFloat(gameRevenue?.total || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </div>
+                    </div>
+                    <div style={{ padding: "20px 24px", background: BG, borderRadius: 12, border: `1px solid ${A}25` }}>
+                      <div style={{ fontFamily: F1, fontSize: 10, color: TD, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 8 }}>Full Game Purchases</div>
+                      <div style={{ fontFamily: F2, fontSize: 26, fontWeight: 800, color: A }}>{gameRevenue?.purchases || "0"}</div>
+                    </div>
+                  </div>
+
+                  {/* Editable total (manual override) */}
+                  <div>
+                    <label style={labelStyle}>Total Revenue (PHP) — Manual Override</label>
+                    <input style={inputStyle} value={gameRevenue?.total || ""} onChange={e => setGameRevenue(prev => ({ ...prev, total: e.target.value }))} placeholder="e.g. 5.90" />
+                    <p style={{ fontFamily: F1, fontSize: 10, color: TD, marginTop: 4 }}>
+                      Auto-calculated from purchase_log title data. Edit only if correcting manually.
+                    </p>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Notes</label>
+                    <input style={inputStyle} value={gameRevenue?.note || ""} onChange={e => setGameRevenue(prev => ({ ...prev, note: e.target.value }))} placeholder="e.g. PayMongo live mode, thesis period only" />
+                  </div>
+
+                  {revenueMsg && (
+                    <div style={{ fontFamily: F1, fontSize: 12, color: revenueMsg.startsWith("✅") ? OK : revenueMsg.startsWith("ℹ") ? A : A2, padding: "10px 14px", background: revenueMsg.startsWith("✅") ? `${OK}0a` : revenueMsg.startsWith("ℹ") ? `${A}0a` : `${A2}0a`, borderRadius: 8, border: `1px solid ${revenueMsg.startsWith("✅") ? OK : revenueMsg.startsWith("ℹ") ? A : A2}25` }}>
+                      {revenueMsg}
+                    </div>
+                  )}
+                  <button onClick={saveRevenue} style={{ alignSelf: "flex-start", padding: "10px 24px", background: `linear-gradient(135deg,${OK},${A})`, border: "none", borderRadius: 8, color: BG, fontFamily: F1, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>SAVE NOTES</button>
                 </div>
               )}
             </div>
@@ -1635,17 +1715,30 @@ export default function EasyExpressSite() {
   const [authModal, setAuthModal] = useState(null);
   const [activeSection, setActiveSection] = useState("");
   const { toasts, addToast, removeToast } = useToasts();
-  const [currentUser, setCurrentUser] = useState(null);
+  const [currentUser, setCurrentUser] = useState(
+    () => localStorage.getItem("ee_auth_username") || sessionStorage.getItem("ee_auth_username") || null
+  );
   const [showCheckout, setShowCheckout] = useState(false);
   const [ownsGame, setOwnsGame] = useState(false);
-  const [sessionTicket, setSessionTicket] = useState(localStorage.getItem("ee_session_ticket") || null);
-  const [playFabId, setPlayFabId] = useState(localStorage.getItem("ee_auth_pfid") || null);
+  const [sessionTicket, setSessionTicket] = useState(
+    () => localStorage.getItem("ee_session_ticket") || sessionStorage.getItem("ee_session_ticket") || null
+  );
+  const [playFabId, setPlayFabId] = useState(
+    () => localStorage.getItem("ee_auth_pfid") || sessionStorage.getItem("ee_auth_pfid") || null
+  );
   const [liveNews, setLiveNews] = useState(NEWS);
   const SPECIFIC_ADMIN_ACCOUNT = "masteradmin";
   const isAdmin = currentUser === SPECIFIC_ADMIN_ACCOUNT;
   const [showAdmin, setShowAdmin] = useState(false);
-  const [adminKey, setAdminKey] = useState("");
-  const [adminAuthed, setAdminAuthed] = useState(false);
+  // Pre-populate the secret key from the Vite env so admin API calls always have a key
+  const [adminKey, setAdminKey] = useState(() => import.meta.env.VITE_PLAYFAB_SECRET_KEY || "");
+  // Pre-authenticate if the stored user is already masteradmin (survives refresh)
+  const [adminAuthed, setAdminAuthed] = useState(() => {
+    const u = localStorage.getItem("ee_auth_username") || sessionStorage.getItem("ee_auth_username") || "";
+    return u === "masteradmin";
+  });
+  // Keep adminAuthed in sync — also covers fresh login within the same session
+  useEffect(() => { if (isAdmin) setAdminAuthed(true); }, [isAdmin]);
 
   // Fetch live news on mount
   useEffect(() => {
@@ -1668,6 +1761,36 @@ export default function EasyExpressSite() {
   const interval = setInterval(fetchLiveNews, 60000);
   return () => clearInterval(interval);
 }, []);
+
+  // ── Session persistence: re-verify token on mount so the UI is immediately correct ──
+  useEffect(() => {
+    const storedTicket = localStorage.getItem("ee_session_ticket") || sessionStorage.getItem("ee_session_ticket");
+    const storedUser   = localStorage.getItem("ee_auth_username")  || sessionStorage.getItem("ee_auth_username");
+    const storedPfId   = localStorage.getItem("ee_auth_pfid")      || sessionStorage.getItem("ee_auth_pfid");
+    if (!storedTicket || !storedUser) return;
+
+    // Restore state immediately so the Nav shows the logged-in user without a flicker
+    setCurrentUser(storedUser);
+    setSessionTicket(storedTicket);
+    setPlayFabId(storedPfId);
+
+    // Re-verify the token and re-check fullGameOwned in the background
+    checkFullGameOwnership(storedTicket)
+      .then(owned => { if (owned) setOwnsGame(true); })
+      .catch(() => {
+        // Token is stale — quietly log out
+        setCurrentUser(null);
+        setSessionTicket(null);
+        setPlayFabId(null);
+        setOwnsGame(false);
+        localStorage.removeItem("ee_session_ticket");
+        localStorage.removeItem("ee_auth_pfid");
+        localStorage.removeItem("ee_auth_username");
+        sessionStorage.removeItem("ee_session_ticket");
+        sessionStorage.removeItem("ee_auth_pfid");
+        sessionStorage.removeItem("ee_auth_username");
+      });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
 useEffect(() => {
   const params = new URLSearchParams(window.location.search);
@@ -1715,6 +1838,9 @@ if (paymentStatus === "cancelled") {
     localStorage.removeItem("ee_session_ticket");
     localStorage.removeItem("ee_auth_pfid");
     localStorage.removeItem("ee_auth_username");
+    sessionStorage.removeItem("ee_session_ticket");
+    sessionStorage.removeItem("ee_auth_pfid");
+    sessionStorage.removeItem("ee_auth_username");
     addToast({ type: "info", title: "Logged Out", message: "You have been logged out of the web portal." });
   };
 
@@ -1739,6 +1865,7 @@ if (paymentStatus === "cancelled") {
           @keyframes successPop{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}
           @keyframes successCheck{from{opacity:0;transform:scale(0.5)}to{opacity:1;transform:scale(1)}}
           @keyframes toastTimer{from{width:100%}to{width:0%}}
+          @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
           @keyframes serverPulse{0%,100%{opacity:1;box-shadow:0 0 6px ${OK},0 0 12px ${OK}40}50%{opacity:0.6;box-shadow:0 0 3px ${OK}}}
           input::placeholder{color:${TD}60}
           input:focus{border-color:${A} !important;box-shadow:0 0 0 3px ${A}12 !important}
@@ -1810,7 +1937,7 @@ if (paymentStatus === "cancelled") {
         <Scenarios />
         <GallerySection />
         <NewsSection liveNews={liveNews} />
-        <PublicLeaderboards />
+        <PublicLeaderboards sessionTicket={sessionTicket} />
         <SystemRequirements />
         <FaqSection />
         <SupportSection addToast={addToast} />

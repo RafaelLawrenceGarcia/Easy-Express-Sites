@@ -433,73 +433,149 @@ function Hero({ onAuth, ownsGame, onBuyClick }) {
   };
 
   return (
-    <section id="hero" style={{ position: "relative", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "120px 1.5rem 80px", overflow: "hidden" }}>
+    <section id="hero" style={{ position: "relative", minHeight: "100vh", display: "flex", alignItems: "stretch", overflow: "hidden" }}>
+
+      {/* ── Right side: game screenshot background ── */}
+      <div style={{
+        position: "absolute", inset: 0,
+        backgroundImage: "url('/gallery/Shopinterior.png')",
+        backgroundSize: "cover", backgroundPosition: "center right",
+        zIndex: 0,
+      }} />
+      {/* Diagonal dark overlay — covers left 60%, fades diagonally to the right */}
+      <div style={{
+        position: "absolute", inset: 0, zIndex: 1,
+        background: `linear-gradient(105deg, ${BG} 0%, ${BG} 48%, ${BG}cc 58%, ${BG}66 70%, transparent 85%)`,
+      }} />
+      {/* Bottom fade so sections below blend in */}
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 220, zIndex: 2, background: `linear-gradient(to top, ${BG}, transparent)` }} />
+      {/* Subtle top vignette */}
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 120, zIndex: 2, background: `linear-gradient(to bottom, ${BG}cc, transparent)` }} />
+
+      {/* Glow accents */}
+      <GlowOrb color={A}  size="420px" top="10%"  left="-8%"  />
+      <GlowOrb color={PU} size="320px" top="55%"  left="5%"   delay={4} />
+      <GlowOrb color={A2} size="260px" top="30%"  left="50%"  delay={2} />
       <CircuitBG />
-      <GlowOrb color={A} size="500px" top="-10%" left="-10%" />
-      <GlowOrb color={A2} size="400px" top="60%" left="70%" delay={3} />
-      <GlowOrb color={PU} size="350px" top="20%" left="80%" delay={5} />
-      <div style={{ display: "inline-block", padding: "6px 16px", borderRadius: 20, background: `${A}12`, border: `1px solid ${A}30`, color: A, fontSize: 12, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", marginBottom: 28, fontFamily: F1, animation: "fadeSlideUp 0.8s ease-out" }}>
-        {"🎮 A 4R THESIS PROJECT"}
-      </div>
-      <h1 style={{ fontFamily: F2, fontSize: "clamp(2.8rem,7vw,5.5rem)", fontWeight: 900, lineHeight: 1.05, background: `linear-gradient(135deg,${T} 0%,${A} 50%,${A2} 100%)`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", margin: "0 0 24px", maxWidth: 900, animation: "fadeSlideUp 0.8s ease-out 0.15s both" }}>
-        {"YOUR DREAM"}<br />{"TECH SHOP"}<br />{"STARTS HERE"}
-      </h1>
-      <p style={{ color: TD, fontSize: "clamp(1rem,2vw,1.25rem)", maxWidth: 620, lineHeight: 1.7, margin: "0 0 40px", fontFamily: F1, animation: "fadeSlideUp 0.8s ease-out 0.3s both" }}>
-        {"Build PCs. Run a shop. Diagnose real hardware problems."}<br />
-        <span style={{ color: T }}>Easy Express</span>{" is the PC shop simulator that teaches you everything from thermal paste to profit margins."}
-      </p>
-      <div style={{ display: "flex", gap: 16, flexWrap: "wrap", justifyContent: "center", animation: "fadeSlideUp 0.8s ease-out 0.45s both" }}>
-        {ownsGame ? (
-          <button onClick={() => handleDownload(true)} className="ee-download-btn" style={{ background: `linear-gradient(135deg,${OK},${A})`, border: "none", color: BG, padding: "16px 36px", borderRadius: 10, fontFamily: F1, fontWeight: 800, fontSize: 16, cursor: "pointer", letterSpacing: 1, boxShadow: `0 0 40px ${OK}30`, display: "flex", alignItems: "center", gap: 10 }}>
-            {"⬇ DOWNLOAD FULL VERSION"} <span style={{ fontSize: 11, opacity: 0.7, fontWeight: 600 }}>Windows .exe</span>
-          </button>
-        ) : (
-          <>
-            <button onClick={() => handleDownload(false)} className="ee-download-btn" style={{ background: `linear-gradient(135deg,${A},#00b8d4)`, border: "none", color: BG, padding: "16px 36px", borderRadius: 10, fontFamily: F1, fontWeight: 800, fontSize: 16, cursor: "pointer", letterSpacing: 1, boxShadow: `0 0 40px ${A}30`, display: "flex", alignItems: "center", gap: 10 }}>
-              {"⬇ DOWNLOAD DEMO"} <span style={{ fontSize: 11, opacity: 0.7, fontWeight: 600 }}>Free • Windows</span>
-            </button>
-            <button onClick={onBuyClick} className="ee-btn-glow" style={{ background: `linear-gradient(135deg,${PU},${A2})`, border: "none", color: T, padding: "16px 32px", borderRadius: 10, fontFamily: F1, fontWeight: 800, fontSize: 15, cursor: "pointer", letterSpacing: 1, boxShadow: `0 0 32px ${PU}25`, display: "flex", alignItems: "center", gap: 8 }}>
-              {"🛒 BUY FULL GAME"} <span style={{ fontSize: 13, fontWeight: 700, color: A }}>₱1</span>
-            </button>
-          </>
-        )}
-        <button onClick={() => onAuth("signup")} className="ee-btn-outline" style={{ background: CARD, border: `1px solid ${BD}`, color: T, padding: "16px 32px", borderRadius: 10, fontFamily: F1, fontWeight: 700, fontSize: 15, cursor: "pointer", letterSpacing: 1 }}>
-          CREATE ACCOUNT
-        </button>
-      </div>
-      {!ownsGame && (
-        <div style={{ marginTop: 16, padding: "8px 18px", borderRadius: 20, background: `${PU}10`, border: `1px solid ${PU}25`, animation: "fadeSlideUp 0.8s ease-out 0.5s both" }}>
-          <span style={{ fontFamily: F1, fontSize: 12, color: TD }}>Demo includes 2 scenarios. </span>
-          <span style={{ fontFamily: F1, fontSize: 12, color: PU, fontWeight: 700 }}>Full game unlocks all 12+ scenarios, full shop management, and leaderboards.</span>
+
+      {/* ── Left side: content ── */}
+      <div style={{ position: "relative", zIndex: 3, display: "flex", flexDirection: "column", justifyContent: "center", padding: "130px clamp(1.5rem,6vw,5rem) 100px", maxWidth: 720, width: "100%" }}>
+
+        {/* Badge */}
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 16px", borderRadius: 20, background: `${A}12`, border: `1px solid ${A}30`, color: A, fontSize: 12, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", marginBottom: 28, fontFamily: F1, width: "fit-content", animation: "fadeSlideUp 0.8s ease-out both" }}>
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: A, boxShadow: `0 0 8px ${A}` }} />
+          {"A 4R THESIS PROJECT · NOW IN BETA"}
         </div>
-      )}
-      <div style={{ marginTop: 36, display: "flex", gap: 40, color: TD, fontFamily: F1, fontSize: 13, fontWeight: 600, animation: "fadeSlideUp 0.8s ease-out 0.6s both", flexWrap: "wrap", justifyContent: "center" }}>
-        {["Windows 10/11", ownsGame ? "Full Version" : "Demo Free / Full ₱1", "One-Time Purchase"].map((t) => (
-          <span key={t} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ color: A, fontSize: 16 }}>{"✓"}</span> {t}
-          </span>
-        ))}
+
+        {/* Title */}
+        <h1 style={{ fontFamily: F2, fontSize: "clamp(2.6rem,6vw,5rem)", fontWeight: 900, lineHeight: 1.05, color: T, margin: "0 0 8px", animation: "fadeSlideUp 0.8s ease-out 0.1s both" }}>
+          {"YOUR DREAM"}
+        </h1>
+        <h1 style={{ fontFamily: F2, fontSize: "clamp(2.6rem,6vw,5rem)", fontWeight: 900, lineHeight: 1.05, background: `linear-gradient(90deg,${A},#00b8d4)`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", margin: "0 0 8px", animation: "fadeSlideUp 0.8s ease-out 0.18s both" }}>
+          {"TECH SHOP"}
+        </h1>
+        <h1 style={{ fontFamily: F2, fontSize: "clamp(2.6rem,6vw,5rem)", fontWeight: 900, lineHeight: 1.05, color: T, margin: "0 0 28px", animation: "fadeSlideUp 0.8s ease-out 0.26s both" }}>
+          {"STARTS HERE"}
+        </h1>
+
+        <p style={{ color: TD, fontSize: "clamp(0.95rem,1.6vw,1.15rem)", maxWidth: 520, lineHeight: 1.75, margin: "0 0 36px", fontFamily: F1, animation: "fadeSlideUp 0.8s ease-out 0.34s both" }}>
+          Build PCs. Run a shop. Diagnose real hardware problems.{" "}
+          <span style={{ color: T, fontWeight: 600 }}>Easy Express</span> is the PC shop simulator that teaches you everything from thermal paste to profit margins.
+        </p>
+
+        {/* CTA buttons */}
+        <div style={{ display: "flex", gap: 14, flexWrap: "wrap", animation: "fadeSlideUp 0.8s ease-out 0.44s both" }}>
+          {ownsGame ? (
+            <button onClick={() => handleDownload(true)} className="ee-download-btn" style={{ background: `linear-gradient(135deg,${OK},${A})`, border: "none", color: BG, padding: "15px 34px", borderRadius: 10, fontFamily: F1, fontWeight: 800, fontSize: 15, cursor: "pointer", letterSpacing: 1, boxShadow: `0 0 32px ${OK}35`, display: "flex", alignItems: "center", gap: 10 }}>
+              ⬇ DOWNLOAD FULL VERSION <span style={{ fontSize: 10, opacity: 0.7 }}>Windows .exe</span>
+            </button>
+          ) : (
+            <>
+              <button onClick={() => handleDownload(false)} className="ee-download-btn" style={{ background: `linear-gradient(135deg,${A},#00b8d4)`, border: "none", color: BG, padding: "15px 34px", borderRadius: 10, fontFamily: F1, fontWeight: 800, fontSize: 15, cursor: "pointer", letterSpacing: 1, boxShadow: `0 0 32px ${A}35`, display: "flex", alignItems: "center", gap: 10 }}>
+                ⬇ DOWNLOAD DEMO <span style={{ fontSize: 10, opacity: 0.7 }}>Free · Windows</span>
+              </button>
+              <button onClick={onBuyClick} className="ee-btn-glow" style={{ background: `linear-gradient(135deg,${PU},${A2})`, border: "none", color: T, padding: "15px 28px", borderRadius: 10, fontFamily: F1, fontWeight: 800, fontSize: 14, cursor: "pointer", letterSpacing: 1, boxShadow: `0 0 28px ${PU}28`, display: "flex", alignItems: "center", gap: 8 }}>
+                🛒 BUY FULL GAME <span style={{ fontSize: 13, fontWeight: 700, color: A }}>₱1</span>
+              </button>
+            </>
+          )}
+          <button onClick={() => onAuth("signup")} className="ee-btn-outline" style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${BD}`, color: T, padding: "15px 28px", borderRadius: 10, fontFamily: F1, fontWeight: 700, fontSize: 14, cursor: "pointer", letterSpacing: 1, backdropFilter: "blur(8px)" }}>
+            CREATE ACCOUNT
+          </button>
+        </div>
+
+        {!ownsGame && (
+          <div style={{ marginTop: 16, display: "inline-flex", padding: "7px 16px", borderRadius: 20, background: `${PU}10`, border: `1px solid ${PU}25`, width: "fit-content", animation: "fadeSlideUp 0.8s ease-out 0.52s both" }}>
+            <span style={{ fontFamily: F1, fontSize: 12, color: TD }}>Demo: 2 scenarios. </span>
+            <span style={{ fontFamily: F1, fontSize: 12, color: PU, fontWeight: 700 }}>&nbsp;Full game: 12+ scenarios + shop + leaderboards.</span>
+          </div>
+        )}
+
+        {/* Stats row */}
+        <div style={{ marginTop: 40, display: "flex", gap: 32, flexWrap: "wrap", animation: "fadeSlideUp 0.8s ease-out 0.58s both" }}>
+          {[{ icon: "🖥", val: "Windows 10/11" }, { icon: "🎓", val: "CS Thesis Project" }, { icon: "💰", val: ownsGame ? "Full Version" : "Demo Free / Full ₱1" }].map((s, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 18 }}>{s.icon}</span>
+              <span style={{ fontFamily: F1, fontSize: 13, fontWeight: 600, color: TD }}>{s.val}</span>
+            </div>
+          ))}
+        </div>
       </div>
-      <div style={{ position: "absolute", bottom: 30, animation: "bounce 2s ease-in-out infinite", color: TD, fontSize: 24 }}>{"↓"}</div>
+
+      {/* Scroll hint */}
+      <div style={{ position: "absolute", bottom: 28, left: "50%", transform: "translateX(-50%)", zIndex: 3, animation: "bounce 2s ease-in-out infinite", color: TD, fontSize: 22 }}>↓</div>
     </section>
   );
 }
 
 function Features() {
+  const STAT_ROW = [
+    { val: "20+", label: "PC Components", color: A },
+    { val: "5+",  label: "Game Scenarios", color: WN },
+    { val: "4",   label: "Core Mechanics", color: PU },
+    { val: "∞",   label: "Replayability",  color: OK },
+  ];
   return (
     <section id="features" style={{ position: "relative", padding: "100px clamp(1rem,4vw,3rem)", maxWidth: 1200, margin: "0 auto" }}>
+      {/* Section header */}
       <div className="ee-reveal" style={{ textAlign: "center", marginBottom: 64 }}>
         <span style={{ color: A, fontSize: 12, fontWeight: 700, letterSpacing: 3, textTransform: "uppercase", fontFamily: F1 }}>WHAT YOU WILL DO</span>
         <h2 style={{ fontFamily: F2, fontSize: "clamp(1.8rem,4vw,2.8rem)", fontWeight: 800, color: T, margin: "12px 0 16px" }}>Learn. Manage. Fix. Repeat.</h2>
         <p style={{ color: TD, maxWidth: 560, margin: "0 auto", lineHeight: 1.7, fontFamily: F1, fontSize: 15 }}>Easy Express is a hands-on crash course in PC hardware, retail operations, and technical problem-solving.</p>
       </div>
-      <div className="ee-grid-4" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 20 }}>
+
+      {/* Stats strip */}
+      <div className="ee-reveal" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 1, marginBottom: 48, background: BD, borderRadius: 16, overflow: "hidden", border: `1px solid ${BD}` }}>
+        {STAT_ROW.map((s, i) => (
+          <div key={i} style={{ background: CARD, padding: "24px 20px", textAlign: "center", position: "relative", overflow: "hidden" }}>
+            <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg,${s.color},transparent)` }} />
+            <div style={{ fontFamily: F2, fontSize: "clamp(1.6rem,3vw,2.2rem)", fontWeight: 900, color: s.color, marginBottom: 4 }}>{s.val}</div>
+            <div style={{ fontFamily: F1, fontSize: 11, color: TD, fontWeight: 600, letterSpacing: 1.5, textTransform: "uppercase" }}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Feature cards — forced 2×2 grid */}
+      <div className="ee-features-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 20 }}>
         {FEATURES.map((f, i) => (
-          <div key={i} className="ee-reveal ee-stagger ee-card-hover" style={{ "--stagger": i, background: CARD, border: `1px solid ${BD}`, borderRadius: 14, padding: "32px 28px", cursor: "default", position: "relative", overflow: "hidden" }}>
-            <span style={{ position: "absolute", top: 16, right: 16, fontSize: 10, fontWeight: 700, letterSpacing: 2, color: A, fontFamily: F1, background: `${A}12`, padding: "3px 10px", borderRadius: 4 }}>{f.tag}</span>
-            <div style={{ fontSize: 36, marginBottom: 16 }}>{f.icon}</div>
+          <div key={i} className="ee-reveal ee-stagger ee-card-hover" style={{
+            "--stagger": i, background: CARD, borderRadius: 16,
+            padding: "32px 28px", cursor: "default", position: "relative", overflow: "hidden",
+            border: `1px solid ${BD}`,
+          }}>
+            {/* Colored top bar */}
+            <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: [
+              `linear-gradient(90deg,${A},transparent)`,
+              `linear-gradient(90deg,${WN},transparent)`,
+              `linear-gradient(90deg,${A2},transparent)`,
+              `linear-gradient(90deg,${PU},transparent)`,
+            ][i % 4] }} />
+            {/* Tag */}
+            <span style={{ position: "absolute", top: 16, right: 16, fontSize: 10, fontWeight: 800, letterSpacing: 2, color: [A,WN,A2,PU][i%4], fontFamily: F1, background: `${[A,WN,A2,PU][i%4]}14`, padding: "3px 10px", borderRadius: 4 }}>{f.tag}</span>
+            {/* Icon */}
+            <div style={{ width: 56, height: 56, borderRadius: 14, background: `${[A,WN,A2,PU][i%4]}12`, border: `1px solid ${[A,WN,A2,PU][i%4]}25`, display: "grid", placeItems: "center", marginBottom: 20, fontSize: 26 }}>{f.icon}</div>
             <h3 style={{ fontFamily: F2, fontSize: 17, fontWeight: 700, color: T, margin: "0 0 10px" }}>{f.title}</h3>
-            <p style={{ color: TD, fontSize: 14, lineHeight: 1.7, fontFamily: F1, margin: 0 }}>{f.desc}</p>
+            <p style={{ color: TD, fontSize: 14, lineHeight: 1.75, fontFamily: F1, margin: 0 }}>{f.desc}</p>
           </div>
         ))}
       </div>
@@ -508,34 +584,60 @@ function Features() {
 }
 
 function Scenarios() {
+  const ICONS = ["💀", "🔧", "🌡️", "⚡"];
   return (
-    <section id="scenarios" style={{ position: "relative", padding: "100px clamp(1rem,4vw,3rem)", background: `linear-gradient(180deg,transparent 0%,${CARD}40 50%,transparent 100%)` }}>
+    <section id="scenarios" style={{ position: "relative", padding: "100px clamp(1rem,4vw,3rem)", background: `linear-gradient(180deg,transparent 0%,${CARD}50 50%,transparent 100%)` }}>
       <div style={{ maxWidth: 1200, margin: "0 auto" }}>
         <div className="ee-reveal" style={{ textAlign: "center", marginBottom: 64 }}>
           <span style={{ color: A2, fontSize: 12, fontWeight: 700, letterSpacing: 3, textTransform: "uppercase", fontFamily: F1 }}>THE SIMULATION</span>
           <h2 style={{ fontFamily: F2, fontSize: "clamp(1.8rem,4vw,2.8rem)", fontWeight: 800, color: T, margin: "12px 0 16px" }}>Real Problems. Real Fixes.</h2>
           <p style={{ color: TD, maxWidth: 560, margin: "0 auto", lineHeight: 1.7, fontFamily: F1, fontSize: 15 }}>Every customer walks in with a unique hardware headache. Your job? Figure it out, hands-on.</p>
         </div>
-        <div className="ee-grid-4" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 20 }}>
+
+        {/* Horizontal scenario cards */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {SCENARIOS.map((s, i) => (
-            <div key={i} className="ee-reveal ee-stagger ee-card-hover" style={{ "--stagger": i, background: CARD, border: `1px solid ${BD}`, borderRadius: 14, padding: "28px 24px", position: "relative", overflow: "hidden" }}>
-              <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg,${s.color},transparent)` }} />
-              <div style={{ width: 40, height: 40, borderRadius: 10, background: `${s.color}15`, border: `1px solid ${s.color}30`, display: "grid", placeItems: "center", marginBottom: 16, fontSize: 18, color: s.color, fontFamily: F2, fontWeight: 800 }}>{String(i + 1).padStart(2, "0")}</div>
-              <h3 style={{ fontFamily: F2, fontSize: 16, fontWeight: 700, color: T, margin: "0 0 8px" }}>{s.title}</h3>
-              <p style={{ color: TD, fontSize: 13, lineHeight: 1.7, fontFamily: F1, margin: 0 }}>{s.desc}</p>
+            <div key={i} className="ee-reveal ee-stagger ee-card-hover" style={{
+              "--stagger": i, background: CARD, border: `1px solid ${BD}`,
+              borderRadius: 16, padding: "28px 32px", position: "relative", overflow: "hidden",
+              display: "flex", alignItems: "center", gap: 28,
+            }}>
+              {/* Left accent bar */}
+              <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 4, background: `linear-gradient(180deg,${s.color},${s.color}40)` }} />
+              {/* Number badge */}
+              <div style={{ flexShrink: 0, width: 64, height: 64, borderRadius: 16, background: `${s.color}12`, border: `2px solid ${s.color}30`, display: "grid", placeItems: "center", fontSize: 26 }}>
+                {ICONS[i]}
+              </div>
+              {/* Content */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 6 }}>
+                  <span style={{ fontFamily: F2, fontSize: 10, fontWeight: 900, color: s.color, letterSpacing: 2, background: `${s.color}14`, padding: "3px 10px", borderRadius: 4 }}>SCENARIO {String(i + 1).padStart(2, "0")}</span>
+                </div>
+                <h3 style={{ fontFamily: F2, fontSize: 17, fontWeight: 700, color: T, margin: "0 0 6px" }}>{s.title}</h3>
+                <p style={{ color: TD, fontSize: 13, lineHeight: 1.6, fontFamily: F1, margin: 0 }}>{s.desc}</p>
+              </div>
+              {/* Right glow */}
+              <div style={{ position: "absolute", right: -40, top: "50%", transform: "translateY(-50%)", width: 120, height: 120, borderRadius: "50%", background: `radial-gradient(circle, ${s.color}12 0%, transparent 70%)`, pointerEvents: "none" }} />
             </div>
           ))}
         </div>
-        <div className="ee-how-it-plays" style={{ marginTop: 48, background: CARD2, border: `1px solid ${BD}`, borderRadius: 16, padding: "36px 40px", display: "flex", flexWrap: "wrap", gap: 40, alignItems: "center", justifyContent: "space-between" }}>
-          <div>
-            <h3 style={{ fontFamily: F2, fontSize: 20, fontWeight: 700, color: T, margin: "0 0 8px" }}>How It Plays</h3>
-            <p style={{ color: TD, fontSize: 14, lineHeight: 1.8, fontFamily: F1, margin: 0, maxWidth: 520 }}>Walk around your shop in first-person. Pick up boxes, unpack PCs onto workstations, open cases and swap out faulty components. Interact with NPCs on the street to attract new customers, then manage orders through your in-shop computer OS.</p>
+
+        {/* How It Plays — redesigned */}
+        <div className="ee-how-it-plays ee-reveal" style={{ marginTop: 40, borderRadius: 20, overflow: "hidden", border: `1px solid ${BD}`, display: "flex", flexWrap: "wrap" }}>
+          <div style={{ flex: 2, minWidth: 280, background: CARD2, padding: "40px 40px", position: "relative" }}>
+            <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg,${A},${PU},transparent)` }} />
+            <div style={{ fontFamily: F2, fontSize: 11, color: A, fontWeight: 700, letterSpacing: 2, marginBottom: 12, textTransform: "uppercase" }}>🎮 How It Plays</div>
+            <h3 style={{ fontFamily: F2, fontSize: 22, fontWeight: 800, color: T, margin: "0 0 14px", lineHeight: 1.2 }}>First-Person<br />PC Shop Sim</h3>
+            <p style={{ color: TD, fontSize: 14, lineHeight: 1.8, fontFamily: F1, margin: 0, maxWidth: 480 }}>Walk around your shop in first-person. Pick up boxes, unpack PCs onto workstations, open cases and swap out faulty components. Interact with NPCs on the street to attract new customers, then manage orders through your in-shop computer OS.</p>
           </div>
-          <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
-            {[{ v: "20+", l: "Components" }, { v: "5+", l: "Scenarios" }, { v: "\u221E", l: "Replayability" }].map((s) => (
-              <div key={s.l} style={{ textAlign: "center" }}>
-                <div style={{ fontFamily: F2, fontSize: 28, fontWeight: 900, color: A }}>{s.v}</div>
-                <div style={{ fontFamily: F1, fontSize: 11, color: TD, fontWeight: 600, letterSpacing: 1, marginTop: 4 }}>{s.l}</div>
+          <div style={{ flex: 1, minWidth: 200, background: `linear-gradient(135deg,${CARD}cc,${BG}cc)`, padding: "40px 32px", display: "flex", flexDirection: "column", justifyContent: "center", gap: 24 }}>
+            {[{ v: "20+", l: "PC Components", c: A }, { v: "5+", l: "Scenarios", c: WN }, { v: "∞", l: "Replayability", c: PU }].map((s) => (
+              <div key={s.l} style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                <div style={{ fontFamily: F2, fontSize: 28, fontWeight: 900, color: s.c, minWidth: 60 }}>{s.v}</div>
+                <div>
+                  <div style={{ fontFamily: F1, fontSize: 12, color: T, fontWeight: 700 }}>{s.l}</div>
+                  <div style={{ width: 40, height: 2, background: s.c, borderRadius: 1, marginTop: 4 }} />
+                </div>
               </div>
             ))}
           </div>
@@ -708,19 +810,22 @@ function NewsSection({ liveNews }) {
   );
 }
 
-function PublicLeaderboards({ sessionTicket: propTicket }) {
+function PublicLeaderboards({ sessionTicket: propTicket, currentUser }) {
+  const PAGE_SIZE = 25;
   const [leaderboard, setLeaderboard] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState(null);
+  const [myRank, setMyRank] = useState(null);   // { Position, StatValue, DisplayName }
   const [sessionTicket, setSessionTicket] = useState(
-    // Prefer: prop ticket (logged-in user) > cached lb ticket > null
     () => propTicket || sessionStorage.getItem("ee_lb_ticket") || null
   );
+  const isLoggedIn = !!propTicket;
 
+  // ── Guest login if needed ──────────────────────────────────────────────────
   useEffect(() => {
-    // If we already have a ticket (logged-in user or cached), skip the guest login entirely
     if (sessionTicket) return;
-
     let cancelled = false;
     async function silentLogin(attempt = 0) {
       let guestId = localStorage.getItem("ee_guest_id");
@@ -740,68 +845,191 @@ function PublicLeaderboards({ sessionTicket: propTicket }) {
           sessionStorage.setItem("ee_lb_ticket", loginJson.data.SessionTicket);
           setSessionTicket(loginJson.data.SessionTicket);
         } else if (loginJson.errorCode === 1227 && attempt < 3) {
-          // Concurrency conflict — back off and retry with jitter
           setTimeout(() => silentLogin(attempt + 1), 800 + Math.random() * 600);
         } else {
-          if (!cancelled) setError(`Login Failed: ${loginJson.errorMessage}`);
-          if (!cancelled) setIsLoading(false);
+          if (!cancelled) { setError(`Login Failed: ${loginJson.errorMessage}`); setIsLoading(false); }
         }
       } catch (e) {
         if (!cancelled) { setError(`Network Error: ${e.message}`); setIsLoading(false); }
       }
     }
-
-    // Stagger guest logins by a random 0–400 ms so two simultaneous visitors don't collide
-    const delay = Math.random() * 400;
-    const t = setTimeout(() => silentLogin(), delay);
+    const t = setTimeout(() => silentLogin(), Math.random() * 400);
     return () => { cancelled = true; clearTimeout(t); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // If the parent passes a fresh logged-in ticket after mount, use it
   useEffect(() => {
     if (propTicket && propTicket !== sessionTicket) setSessionTicket(propTicket);
   }, [propTicket]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Initial fetch: top 25 + personal rank ─────────────────────────────────
   useEffect(() => {
     if (!sessionTicket) return;
-    async function fetchLeaderboard() {
+    async function fetchAll() {
       setIsLoading(true); setError(null);
       try {
-        const lbRes = await fetch(`https://${PLAYFAB_TITLE_ID}.playfabapi.com/Client/GetLeaderboard`, { method: "POST", headers: { "Content-Type": "application/json", "X-Authorization": sessionTicket }, body: JSON.stringify({ StatisticName: "Gold", StartPosition: 0, MaxResultsCount: 10 }) });
+        // Top 25
+        const lbRes = await fetch(`https://${PLAYFAB_TITLE_ID}.playfabapi.com/Client/GetLeaderboard`, {
+          method: "POST", headers: { "Content-Type": "application/json", "X-Authorization": sessionTicket },
+          body: JSON.stringify({ StatisticName: "Gold", StartPosition: 0, MaxResultsCount: PAGE_SIZE })
+        });
         const lbJson = await lbRes.json();
-        if (lbJson.code === 200) setLeaderboard(lbJson.data.Leaderboard || []);
-        else setError(`Data Error: ${lbJson.errorMessage}`);
+        if (lbJson.code !== 200) { setError(`Data Error: ${lbJson.errorMessage}`); return; }
+        const rows = lbJson.data.Leaderboard || [];
+        setLeaderboard(rows);
+        setHasMore(rows.length === PAGE_SIZE);
+
+        // Personal rank — only for logged-in users, fetches their position in the full board
+        if (isLoggedIn) {
+          const myRes = await fetch(`https://${PLAYFAB_TITLE_ID}.playfabapi.com/Client/GetLeaderboardAroundPlayer`, {
+            method: "POST", headers: { "Content-Type": "application/json", "X-Authorization": sessionTicket },
+            body: JSON.stringify({ StatisticName: "Gold", MaxResultsCount: 1 })
+          });
+          const myJson = await myRes.json();
+          if (myJson.code === 200 && myJson.data.Leaderboard?.length) {
+            const me = myJson.data.Leaderboard.find(p => p.PlayFabId === myJson.data.PlayFabId)
+                     || myJson.data.Leaderboard[Math.floor(myJson.data.Leaderboard.length / 2)];
+            if (me) setMyRank(me);
+          }
+        }
       } catch (e) { setError(`Fetch Error: ${e.message}`); }
       finally { setIsLoading(false); }
     }
-    fetchLeaderboard();
-  }, [sessionTicket]);
+    fetchAll();
+  }, [sessionTicket, isLoggedIn]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Load more ──────────────────────────────────────────────────────────────
+  const loadMore = async () => {
+    if (!sessionTicket || isLoadingMore) return;
+    setIsLoadingMore(true);
+    try {
+      const nextStart = leaderboard.length;
+      const res = await fetch(`https://${PLAYFAB_TITLE_ID}.playfabapi.com/Client/GetLeaderboard`, {
+        method: "POST", headers: { "Content-Type": "application/json", "X-Authorization": sessionTicket },
+        body: JSON.stringify({ StatisticName: "Gold", StartPosition: nextStart, MaxResultsCount: PAGE_SIZE })
+      });
+      const json = await res.json();
+      if (json.code === 200) {
+        const newRows = json.data.Leaderboard || [];
+        setLeaderboard(prev => [...prev, ...newRows]);
+        setHasMore(newRows.length === PAGE_SIZE);
+      }
+    } catch (e) { /* silent */ }
+    finally { setIsLoadingMore(false); }
+  };
+
+  const MEDALS = ["🥇", "🥈", "🥉"];
+  const MEDAL_COLORS = [WN, "#b0b8c8", "#cd7f32"];
+
+  // Is the logged-in player already visible in the top list?
+  const myRankVisibleInList = myRank && leaderboard.some(p => p.PlayFabId === myRank.PlayFabId);
 
   return (
     <section id="leaderboards" style={{ padding: "100px clamp(1rem,4vw,3rem)", maxWidth: 900, margin: "0 auto" }}>
-      <div className="ee-reveal" style={{ textAlign: "center", marginBottom: 40 }}>
+      <div className="ee-reveal" style={{ textAlign: "center", marginBottom: 48 }}>
         <span style={{ color: A, fontSize: 12, fontWeight: 700, letterSpacing: 3, textTransform: "uppercase", fontFamily: F1 }}>RANKINGS</span>
         <h2 style={{ fontFamily: F2, fontSize: "clamp(1.8rem,4vw,2.5rem)", fontWeight: 800, color: T, margin: "12px 0 16px" }}>Global Leaderboards</h2>
         <p style={{ color: TD, fontSize: 13, fontFamily: F1, lineHeight: 1.6 }}>💰 Top Wealth — who's stacking the most gold?</p>
       </div>
-      <div style={{ background: CARD, border: `1px solid ${BD}`, borderRadius: 16, overflow: "hidden", boxShadow: `0 20px 40px ${BG}ee` }}>
-        {error ? ( <div style={{ padding: 60, textAlign: "center", color: A2, fontFamily: F1, lineHeight: 1.6 }}>{error}</div>
-        ) : isLoading || !sessionTicket ? ( <div style={{ padding: 60, textAlign: "center", color: TD, fontFamily: F1 }}>Loading leaderboard...</div>
-        ) : leaderboard.length === 0 ? ( <div style={{ padding: 60, textAlign: "center", color: TD, fontFamily: F1 }}>No players found.</div>
+
+      {/* ── Your Rank card (logged-in only) ── */}
+      {isLoggedIn && myRank && !myRankVisibleInList && (
+        <div style={{ marginBottom: 20, padding: "18px 24px", background: `linear-gradient(135deg,${A}10,${PU}08)`, border: `1px solid ${A}30`, borderRadius: 16, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+          <div style={{ width: 40, height: 40, borderRadius: 10, background: `${A}18`, border: `1px solid ${A}30`, display: "grid", placeItems: "center", fontSize: 18, flexShrink: 0 }}>🧑‍💻</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontFamily: F2, fontSize: 10, color: A, fontWeight: 700, letterSpacing: 2, marginBottom: 3 }}>YOUR RANK</div>
+            <div style={{ fontFamily: F1, fontSize: 14, color: T, fontWeight: 700 }}>{myRank.DisplayName || currentUser || "You"}</div>
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontFamily: F2, fontSize: 22, fontWeight: 900, color: A }}>#{myRank.Position + 1}</div>
+            <div style={{ fontFamily: F1, fontSize: 12, color: WN, fontWeight: 700 }}>{(myRank.StatValue || 0).toLocaleString()} G</div>
+          </div>
+          <div style={{ fontFamily: F1, fontSize: 11, color: TD, width: "100%", marginTop: -4 }}>
+            You're not in the top {leaderboard.length} yet — keep playing to climb the board!
+          </div>
+        </div>
+      )}
+      {isLoggedIn && myRank && myRankVisibleInList && (
+        <div style={{ marginBottom: 20, padding: "12px 20px", background: `${A}08`, border: `1px solid ${A}25`, borderRadius: 12, display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: 16 }}>✓</span>
+          <span style={{ fontFamily: F1, fontSize: 13, color: A, fontWeight: 700 }}>You're on the board! Rank #{myRank.Position + 1} — {(myRank.StatValue || 0).toLocaleString()} G</span>
+        </div>
+      )}
+
+      {/* ── Main leaderboard card ── */}
+      <div style={{ background: CARD, border: `1px solid ${BD}`, borderRadius: 20, overflow: "hidden", boxShadow: `0 24px 48px ${BG}ee` }}>
+        <div style={{ height: 3, background: `linear-gradient(90deg,${WN},${A},transparent)` }} />
+        {error ? (
+          <div style={{ padding: 60, textAlign: "center", color: A2, fontFamily: F1, fontSize: 13, lineHeight: 1.7 }}>
+            <div style={{ fontSize: 32, marginBottom: 12 }}>⚠</div>{error}
+          </div>
+        ) : isLoading || !sessionTicket ? (
+          <div style={{ padding: 60, textAlign: "center", color: TD, fontFamily: F1, display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+            <div style={{ width: 32, height: 32, border: `3px solid ${A}`, borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.9s linear infinite" }} />
+            Loading rankings...
+          </div>
+        ) : leaderboard.length === 0 ? (
+          <div style={{ padding: 60, textAlign: "center", color: TD, fontFamily: F1 }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>🏆</div>No players on the board yet. Be the first!
+          </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            <div style={{ display: "flex", padding: "16px 24px", background: CARD2, borderBottom: `1px solid ${BD}` }}>
-              <span style={{ flex: 0.5, fontFamily: F2, fontSize: 10, fontWeight: 700, color: TD, letterSpacing: 1 }}>RANK</span>
-              <span style={{ flex: 2, fontFamily: F2, fontSize: 10, fontWeight: 700, color: TD, letterSpacing: 1 }}>PLAYER</span>
-              <span style={{ flex: 1, fontFamily: F2, fontSize: 10, fontWeight: 700, color: TD, letterSpacing: 1, textAlign: "right" }}>GOLD</span>
+          <div>
+            {/* Top 3 podium */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 1, background: BD }}>
+              {leaderboard.slice(0, 3).map((p, i) => (
+                <div key={p.PlayFabId} style={{ background: i === 0 ? `linear-gradient(160deg,${WN}10,${CARD})` : CARD, padding: "28px 24px", textAlign: "center", position: "relative" }}>
+                  {i === 0 && <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg,transparent,${WN},transparent)` }} />}
+                  <div style={{ fontSize: 32, marginBottom: 8 }}>{MEDALS[i]}</div>
+                  <div style={{ fontFamily: F2, fontSize: i === 0 ? 15 : 13, fontWeight: 800, color: i === 0 ? WN : MEDAL_COLORS[i], marginBottom: 4 }}>{p.DisplayName || "Anonymous"}</div>
+                  <div style={{ fontFamily: F2, fontSize: i === 0 ? 22 : 18, fontWeight: 900, color: T }}>{p.StatValue.toLocaleString()}<span style={{ fontSize: 12, color: WN, marginLeft: 4 }}>G</span></div>
+                </div>
+              ))}
             </div>
-            {leaderboard.map((p) => (
-              <div key={p.PlayFabId} className="ee-lb-row" style={{ display: "flex", padding: "18px 24px", borderBottom: `1px solid ${BD}`, justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ flex: 0.5, fontFamily: F2, fontSize: 16, fontWeight: 800, color: p.Position < 3 ? A : TD }}>{p.Position + 1}</span>
-                <span style={{ flex: 2, fontFamily: F1, fontSize: 15, color: T, fontWeight: 600 }}>{p.DisplayName || "Anonymous"}</span>
-                <span style={{ flex: 1, color: A, fontFamily: F2, fontWeight: 700, textAlign: "right" }}>{p.StatValue.toLocaleString()} G</span>
+
+            {/* Ranks 4+ table */}
+            {leaderboard.length > 3 && (
+              <div>
+                <div style={{ display: "flex", padding: "12px 24px", background: CARD2, borderTop: `1px solid ${BD}` }}>
+                  <span style={{ flex: 0.5, fontFamily: F2, fontSize: 9, fontWeight: 700, color: TD, letterSpacing: 1.5 }}>RANK</span>
+                  <span style={{ flex: 2, fontFamily: F2, fontSize: 9, fontWeight: 700, color: TD, letterSpacing: 1.5 }}>PLAYER</span>
+                  <span style={{ flex: 1, fontFamily: F2, fontSize: 9, fontWeight: 700, color: TD, letterSpacing: 1.5, textAlign: "right" }}>GOLD</span>
+                </div>
+                {leaderboard.slice(3).map((p) => {
+                  const isMe = myRank && p.PlayFabId === myRank.PlayFabId;
+                  return (
+                    <div key={p.PlayFabId} className="ee-lb-row" style={{ display: "flex", padding: "16px 24px", borderTop: `1px solid ${BD}`, alignItems: "center", background: isMe ? `${A}07` : "transparent" }}>
+                      <span style={{ flex: 0.5, fontFamily: F2, fontSize: 14, fontWeight: 800, color: isMe ? A : TD }}>#{p.Position + 1}</span>
+                      <span style={{ flex: 2, fontFamily: F1, fontSize: 14, color: isMe ? A : T, fontWeight: isMe ? 800 : 600 }}>
+                        {p.DisplayName || "Anonymous"}{isMe && <span style={{ fontFamily: F1, fontSize: 10, color: A, marginLeft: 8, background: `${A}18`, padding: "2px 8px", borderRadius: 4 }}>YOU</span>}
+                      </span>
+                      <span style={{ flex: 1, color: WN, fontFamily: F2, fontWeight: 700, textAlign: "right", fontSize: 13 }}>{p.StatValue.toLocaleString()} G</span>
+                    </div>
+                  );
+                })}
               </div>
-            ))}
+            )}
+
+            {/* Load More button */}
+            {hasMore && (
+              <div style={{ padding: "20px 24px", borderTop: `1px solid ${BD}`, textAlign: "center" }}>
+                <button
+                  onClick={loadMore}
+                  disabled={isLoadingMore}
+                  className="ee-btn-outline"
+                  style={{ padding: "11px 32px", background: "transparent", border: `1px solid ${A}40`, color: A, borderRadius: 10, fontFamily: F1, fontWeight: 700, fontSize: 13, cursor: isLoadingMore ? "not-allowed" : "pointer", letterSpacing: 1, display: "inline-flex", alignItems: "center", gap: 8, opacity: isLoadingMore ? 0.6 : 1 }}
+                >
+                  {isLoadingMore ? (
+                    <><div style={{ width: 14, height: 14, border: `2px solid ${A}`, borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} /> Loading...</>
+                  ) : (
+                    `↓ Load More (showing ${leaderboard.length})`
+                  )}
+                </button>
+              </div>
+            )}
+            {!hasMore && leaderboard.length > 3 && (
+              <div style={{ padding: "14px 24px", borderTop: `1px solid ${BD}`, textAlign: "center" }}>
+                <span style={{ fontFamily: F1, fontSize: 11, color: TD }}>All {leaderboard.length} ranked players shown</span>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -813,20 +1041,39 @@ function SystemRequirements() {
   const [tab, setTab] = useState("minimum");
   const specs = SPECS[tab];
   const labels = { os: "Operating System", cpu: "Processor", ram: "Memory", gpu: "Graphics", storage: "Storage", dx: "DirectX" };
+  const icons  = { os: "🪟", cpu: "⚡", ram: "💾", gpu: "🖥", storage: "📀", dx: "🎮" };
   const specKeys = Object.keys(specs);
   return (
-    <section id="specs" style={{ padding: "100px clamp(1rem,4vw,3rem)", background: `linear-gradient(180deg,transparent 0%,${CARD}40 50%,transparent 100%)` }}>
-      <div style={{ maxWidth: 700, margin: "0 auto" }}>
+    <section id="specs" style={{ padding: "100px clamp(1rem,4vw,3rem)", background: `linear-gradient(180deg,transparent 0%,${CARD}50 50%,transparent 100%)` }}>
+      <div style={{ maxWidth: 860, margin: "0 auto" }}>
         <div className="ee-reveal" style={{ textAlign: "center", marginBottom: 48 }}>
           <span style={{ color: PU, fontSize: 12, fontWeight: 700, letterSpacing: 3, textTransform: "uppercase", fontFamily: F1 }}>REQUIREMENTS</span>
           <h2 style={{ fontFamily: F2, fontSize: "clamp(1.8rem,4vw,2.5rem)", fontWeight: 800, color: T, margin: "12px 0 16px" }}>System Specs</h2>
+          <p style={{ color: TD, fontFamily: F1, fontSize: 14 }}>Check if your PC can run Easy Express before downloading.</p>
         </div>
-        <div style={{ display: "flex", gap: 8, justifyContent: "center", marginBottom: 32 }}>
-          {["minimum", "recommended"].map((t) => ( <button key={t} className="ee-tab-btn" onClick={() => setTab(t)} style={{ padding: "10px 28px", borderRadius: 8, background: tab === t ? `${A}18` : "transparent", border: `1px solid ${tab === t ? A + "50" : BD}`, color: tab === t ? A : TD, fontFamily: F1, fontWeight: 700, fontSize: 13, cursor: "pointer", letterSpacing: 1, textTransform: "uppercase", transition: "all 0.3s" }}>{t}</button> ))}
+        {/* Toggle tabs */}
+        <div style={{ display: "flex", gap: 0, justifyContent: "center", marginBottom: 32, background: CARD, borderRadius: 12, padding: 4, maxWidth: 320, marginLeft: "auto", marginRight: "auto", border: `1px solid ${BD}` }}>
+          {["minimum", "recommended"].map((t) => (
+            <button key={t} className="ee-tab-btn" onClick={() => setTab(t)} style={{ flex: 1, padding: "10px 20px", borderRadius: 9, background: tab === t ? `linear-gradient(135deg,${PU},${A})` : "transparent", border: "none", color: tab === t ? BG : TD, fontFamily: F1, fontWeight: 700, fontSize: 12, cursor: "pointer", letterSpacing: 1, textTransform: "uppercase", transition: "all 0.3s" }}>{t}</button>
+          ))}
         </div>
-        <div style={{ background: CARD, border: `1px solid ${BD}`, borderRadius: 16, overflow: "hidden" }}>
-          {specKeys.map((key, i) => ( <div key={key} className="ee-spec-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 24px", borderBottom: i < specKeys.length - 1 ? `1px solid ${BD}` : "none" }}><span style={{ fontFamily: F1, fontSize: 13, color: TD, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>{labels[key]}</span><span style={{ fontFamily: F1, fontSize: 14, color: T, fontWeight: 600, textAlign: "right" }}>{specs[key]}</span></div> ))}
+        <div style={{ background: CARD, border: `1px solid ${tab === "recommended" ? PU + "40" : BD}`, borderRadius: 20, overflow: "hidden", transition: "border-color 0.3s" }}>
+          <div style={{ height: 3, background: tab === "recommended" ? `linear-gradient(90deg,${PU},${A})` : `linear-gradient(90deg,${BD},transparent)` }} />
+          {specKeys.map((key, i) => (
+            <div key={key} className="ee-spec-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "18px 28px", borderBottom: i < specKeys.length - 1 ? `1px solid ${BD}` : "none", gap: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 160 }}>
+                <span style={{ fontSize: 18, flexShrink: 0 }}>{icons[key]}</span>
+                <span style={{ fontFamily: F1, fontSize: 12, color: TD, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>{labels[key]}</span>
+              </div>
+              <span style={{ fontFamily: F1, fontSize: 14, color: T, fontWeight: 600, textAlign: "right" }}>{specs[key]}</span>
+            </div>
+          ))}
         </div>
+        {tab === "recommended" && (
+          <div style={{ marginTop: 16, padding: "12px 20px", background: `${PU}0a`, border: `1px solid ${PU}25`, borderRadius: 10, textAlign: "center" }}>
+            <span style={{ fontFamily: F1, fontSize: 12, color: PU, fontWeight: 700 }}>✓ Recommended specs give you the best 60fps+ experience with max texture quality.</span>
+          </div>
+        )}
       </div>
     </section>
   );
@@ -835,22 +1082,28 @@ function SystemRequirements() {
 function FaqSection() {
   const [openIdx, setOpenIdx] = useState(null);
   return (
-    <section id="faq" style={{ padding: "100px clamp(1rem,4vw,3rem)", maxWidth: 800, margin: "0 auto" }}>
-      <div className="ee-reveal" style={{ textAlign: "center", marginBottom: 48 }}>
-        <span style={{ color: A, fontSize: 12, fontWeight: 700, letterSpacing: 3, textTransform: "uppercase", fontFamily: F1 }}>HELP</span>
-        <h2 style={{ fontFamily: F2, fontSize: "clamp(1.8rem,4vw,2.5rem)", fontWeight: 800, color: T, margin: "12px 0 0" }}>FAQ</h2>
+    <section id="faq" style={{ padding: "100px clamp(1rem,4vw,3rem)", maxWidth: 860, margin: "0 auto" }}>
+      <div className="ee-reveal" style={{ textAlign: "center", marginBottom: 56 }}>
+        <span style={{ color: A, fontSize: 12, fontWeight: 700, letterSpacing: 3, textTransform: "uppercase", fontFamily: F1 }}>HELP CENTER</span>
+        <h2 style={{ fontFamily: F2, fontSize: "clamp(1.8rem,4vw,2.5rem)", fontWeight: 800, color: T, margin: "12px 0 14px" }}>Frequently Asked Questions</h2>
+        <p style={{ color: TD, fontFamily: F1, fontSize: 14 }}>Can't find an answer? Email us at <span style={{ color: A }}>easyexpress.4r@gmail.com</span></p>
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {FAQS.map((f, i) => {
           const isOpen = openIdx === i;
           return (
-            <div key={i} className="ee-faq-hover" style={{ background: CARD, border: `1px solid ${isOpen ? A + "40" : BD}`, borderRadius: 12, overflow: "hidden", transition: "border-color 0.3s" }}>
-              <button onClick={() => setOpenIdx(isOpen ? null : i)} style={{ width: "100%", padding: "18px 24px", background: "none", border: "none", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", textAlign: "left" }}>
-                <span style={{ fontFamily: F1, fontSize: 14, fontWeight: 700, color: isOpen ? A : T }}>{f.q}</span>
-                <span style={{ color: isOpen ? A : TD, fontSize: 18, fontWeight: 300, transition: "transform 0.3s", display: "inline-block", transform: isOpen ? "rotate(45deg)" : "rotate(0deg)" }}>+</span>
+            <div key={i} className="ee-faq-hover" style={{ background: isOpen ? `${A}06` : CARD, border: `1px solid ${isOpen ? A + "35" : BD}`, borderRadius: 14, overflow: "hidden", transition: "all 0.3s" }}>
+              <button onClick={() => setOpenIdx(isOpen ? null : i)} style={{ width: "100%", padding: "20px 28px", background: "none", border: "none", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", textAlign: "left", gap: 16 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: isOpen ? A : BD, flexShrink: 0, transition: "background 0.3s", boxShadow: isOpen ? `0 0 8px ${A}` : "none" }} />
+                  <span style={{ fontFamily: F1, fontSize: 14, fontWeight: 700, color: isOpen ? A : T }}>{f.q}</span>
+                </div>
+                <span style={{ color: isOpen ? A : TD, fontSize: 20, fontWeight: 300, transition: "transform 0.35s", display: "inline-block", transform: isOpen ? "rotate(45deg)" : "rotate(0deg)", flexShrink: 0 }}>+</span>
               </button>
               <div style={{ maxHeight: isOpen ? 200 : 0, overflow: "hidden", transition: "max-height 0.4s cubic-bezier(0.16,1,0.3,1)" }}>
-                <div style={{ padding: "0 24px 18px 24px" }}><p style={{ fontFamily: F1, fontSize: 13, color: TD, lineHeight: 1.7, margin: 0 }}>{f.a}</p></div>
+                <div style={{ padding: "0 28px 22px 50px" }}>
+                  <p style={{ fontFamily: F1, fontSize: 13, color: TD, lineHeight: 1.8, margin: 0 }}>{f.a}</p>
+                </div>
               </div>
             </div>
           );
@@ -1107,21 +1360,50 @@ function SupportSection({ addToast }) {
 }
 
 function About() {
+  const ROLE_COLORS = [A, PU, WN, OK];
+  const ROLE_ICONS  = ["💻", "🎮", "🎨", "🔍"];
   return (
     <section id="about" style={{ padding: "100px clamp(1rem,4vw,3rem)", maxWidth: 1200, margin: "0 auto" }}>
-      <div className="ee-reveal" style={{ textAlign: "center", marginBottom: 48 }}>
+      <div className="ee-reveal" style={{ textAlign: "center", marginBottom: 56 }}>
         <span style={{ color: PU, fontSize: 12, fontWeight: 700, letterSpacing: 3, textTransform: "uppercase", fontFamily: F1 }}>THE TEAM</span>
         <h2 style={{ fontFamily: F2, fontSize: "clamp(1.8rem,4vw,2.5rem)", fontWeight: 800, color: T, margin: "12px 0 16px" }}>Built by 4R</h2>
-        <p style={{ color: TD, maxWidth: 520, margin: "0 auto", lineHeight: 1.7, fontFamily: F1, fontSize: 15 }}>Four Computer Science students who believe the best way to learn hardware is by getting your virtual hands dirty. Easy Express is our thesis project and our love letter to the Philippine PC retail scene.</p>
+        <p style={{ color: TD, maxWidth: 520, margin: "0 auto", lineHeight: 1.7, fontFamily: F1, fontSize: 15 }}>Four Computer Science students building the PC shop simulator they wish existed. Easy Express is our thesis — and our love letter to the Philippine tech retail scene.</p>
       </div>
-      <div className="ee-grid-team" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, maxWidth: 860, margin: "0 auto" }}>
+
+      {/* Team grid */}
+      <div className="ee-grid-team" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 20, maxWidth: 960, margin: "0 auto" }}>
         {TEAM.map((m, i) => (
-          <div key={i} className="ee-reveal ee-stagger ee-team-hover" style={{ "--stagger": i, background: CARD, border: `1px solid ${BD}`, borderRadius: 12, padding: "24px 20px", textAlign: "center" }}>
-            <div className="ee-team-avatar" style={{ width: 52, height: 52, borderRadius: "50%", background: `linear-gradient(135deg,${PU}30,${A}30)`, margin: "0 auto 12px", display: "grid", placeItems: "center", fontFamily: F2, fontWeight: 800, fontSize: 16, color: PU }}>{m.av}</div>
-            <div style={{ fontFamily: F2, fontSize: 14, fontWeight: 700, color: T, marginBottom: 4 }}>{m.name}</div>
-            <div style={{ fontFamily: F1, fontSize: 12, color: TD, fontWeight: 600 }}>{m.role}</div>
+          <div key={i} className="ee-reveal ee-stagger ee-team-hover" style={{ "--stagger": i, background: CARD, border: `1px solid ${BD}`, borderRadius: 16, padding: "28px 24px", textAlign: "center", position: "relative", overflow: "hidden" }}>
+            <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg,${ROLE_COLORS[i]},transparent)` }} />
+            {/* Avatar */}
+            <div className="ee-team-avatar" style={{
+              width: 64, height: 64, borderRadius: "50%",
+              background: `linear-gradient(135deg,${ROLE_COLORS[i]}30,${ROLE_COLORS[i]}10)`,
+              border: `2px solid ${ROLE_COLORS[i]}40`,
+              margin: "0 auto 16px", display: "grid", placeItems: "center",
+              fontFamily: F2, fontWeight: 900, fontSize: 22, color: ROLE_COLORS[i],
+            }}>{ROLE_ICONS[i]}</div>
+            <div style={{ fontFamily: F2, fontSize: 13, fontWeight: 700, color: T, marginBottom: 6, lineHeight: 1.3 }}>{m.name}</div>
+            <div style={{ display: "inline-block", fontFamily: F1, fontSize: 11, color: ROLE_COLORS[i], fontWeight: 700, background: `${ROLE_COLORS[i]}14`, padding: "3px 12px", borderRadius: 20, letterSpacing: 0.5 }}>{m.role}</div>
           </div>
         ))}
+      </div>
+
+      {/* Thesis badge */}
+      <div className="ee-reveal" style={{ marginTop: 48, maxWidth: 700, margin: "48px auto 0", background: `linear-gradient(135deg,${CARD} 60%,${PU}08)`, border: `1px solid ${PU}30`, borderRadius: 20, padding: "32px 36px", display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap" }}>
+        <div style={{ flex: 1, minWidth: 200 }}>
+          <div style={{ fontFamily: F2, fontSize: 11, color: PU, fontWeight: 700, letterSpacing: 2, marginBottom: 8 }}>🎓 THESIS PROJECT</div>
+          <div style={{ fontFamily: F2, fontSize: 18, fontWeight: 800, color: T, marginBottom: 8 }}>CS Thesis — AY 2025–2026</div>
+          <p style={{ fontFamily: F1, fontSize: 13, color: TD, lineHeight: 1.7, margin: 0 }}>Easy Express is submitted as a thesis project for the Bachelor of Science in Computer Science program. All game content, code, and assets are original work by Team 4R.</p>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, flexShrink: 0 }}>
+          {[{ icon: "🏫", text: "CS Department" }, { icon: "🛠", text: "Built with Unity" }, { icon: "📅", text: "Defense 2026" }].map((b, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 16px", background: BG, borderRadius: 8, border: `1px solid ${BD}` }}>
+              <span style={{ fontSize: 16 }}>{b.icon}</span>
+              <span style={{ fontFamily: F1, fontSize: 12, color: T, fontWeight: 600 }}>{b.text}</span>
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   );
@@ -1135,35 +1417,64 @@ function Footer() {
     { slug: "refunds", label: "Refund Policy" },
   ];
   return (
-    <footer style={{ borderTop: `1px solid ${BD}`, padding: "48px clamp(1rem,4vw,3rem) 32px" }}>
-      <div className="ee-footer-grid" style={{ maxWidth: 1200, margin: "0 auto", display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: 40, marginBottom: 40 }}>
-        <div style={{ maxWidth: 300 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-            <div style={{ width: 28, height: 28, borderRadius: 5, background: `linear-gradient(135deg,${A},${A2})`, display: "grid", placeItems: "center", fontWeight: 800, fontSize: 11, color: BG, fontFamily: F1 }}>EE</div>
-            <span style={{ color: T, fontWeight: 700, fontSize: 14, letterSpacing: 1, fontFamily: F1 }}>EASY EXPRESS</span>
+    <footer style={{ background: `linear-gradient(180deg,transparent,${CARD}60)`, borderTop: `1px solid ${BD}`, padding: "64px clamp(1rem,4vw,3rem) 36px", position: "relative", overflow: "hidden" }}>
+      {/* Background glow */}
+      <div style={{ position: "absolute", bottom: -80, left: "50%", transform: "translateX(-50%)", width: 600, height: 200, borderRadius: "50%", background: `radial-gradient(ellipse, ${A}06 0%, transparent 70%)`, pointerEvents: "none" }} />
+
+      <div style={{ maxWidth: 1200, margin: "0 auto", position: "relative" }}>
+        {/* Top section */}
+        <div className="ee-footer-grid" style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: 48, marginBottom: 48 }}>
+          {/* Brand */}
+          <div style={{ maxWidth: 320 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+              <div style={{ width: 40, height: 40, borderRadius: 10, background: `linear-gradient(135deg,${A},${A2})`, display: "grid", placeItems: "center", fontWeight: 900, fontSize: 16, color: BG, fontFamily: F2, boxShadow: `0 0 20px ${A}30` }}>EE</div>
+              <div>
+                <div style={{ color: T, fontWeight: 800, fontSize: 16, letterSpacing: 1, fontFamily: F2 }}>EASY EXPRESS</div>
+                <div style={{ color: TD, fontSize: 10, fontFamily: F1, letterSpacing: 1.5 }}>PC SHOP SIMULATOR</div>
+              </div>
+            </div>
+            <p style={{ fontFamily: F1, fontSize: 13, color: TD, lineHeight: 1.7, marginBottom: 20 }}>A PC shop simulator and educational game by Team 4R. Built with Unity for our CS thesis.</p>
+            {/* Email CTA */}
+            <a href="mailto:easyexpress.4r@gmail.com" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 16px", background: `${A}10`, border: `1px solid ${A}30`, borderRadius: 8, color: A, fontFamily: F1, fontSize: 12, fontWeight: 700, textDecoration: "none", letterSpacing: 0.5 }}>
+              ✉ easyexpress.4r@gmail.com
+            </a>
           </div>
-          <p style={{ fontFamily: F1, fontSize: 12, color: TD, lineHeight: 1.7 }}>A PC shop simulator and educational game by Team 4R. Built with Unity for our Computer Science thesis.</p>
+
+          {/* Quick Links */}
+          <div>
+            <div style={{ fontFamily: F2, fontSize: 10, fontWeight: 700, color: A, letterSpacing: 2.5, marginBottom: 16, textTransform: "uppercase" }}>Navigation</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 24px" }}>
+              {navLinks.map((l) => (
+                <a key={l} href={"#" + l} style={{ fontFamily: F1, fontSize: 12, color: TD, textDecoration: "none", textTransform: "capitalize", transition: "color 0.2s" }}
+                  onMouseEnter={e => e.target.style.color = A} onMouseLeave={e => e.target.style.color = TD}>{l}</a>
+              ))}
+            </div>
+          </div>
+
+          {/* Legal & Platform */}
+          <div>
+            <div style={{ fontFamily: F2, fontSize: 10, fontWeight: 700, color: WN, letterSpacing: 2.5, marginBottom: 16, textTransform: "uppercase" }}>Legal</div>
+            {legalLinks.map((l) => (
+              <a key={l.slug} href={"#/" + l.slug} style={{ display: "block", fontFamily: F1, fontSize: 12, color: TD, textDecoration: "none", marginBottom: 8 }}
+                onMouseEnter={e => e.target.style.color = T} onMouseLeave={e => e.target.style.color = TD}>{l.label}</a>
+            ))}
+            <div style={{ marginTop: 20 }}>
+              <div style={{ fontFamily: F2, fontSize: 10, fontWeight: 700, color: OK, letterSpacing: 2.5, marginBottom: 12, textTransform: "uppercase" }}>Platform</div>
+              <div style={{ padding: "8px 14px", background: `${OK}0a`, border: `1px solid ${OK}20`, borderRadius: 8, display: "inline-flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 14 }}>🪟</span>
+                <span style={{ fontFamily: F1, fontSize: 12, color: OK, fontWeight: 700 }}>Windows 10 / 11</span>
+              </div>
+            </div>
+          </div>
         </div>
-        <div>
-          <div style={{ fontFamily: F2, fontSize: 11, fontWeight: 700, color: T, letterSpacing: 2, marginBottom: 12 }}>QUICK LINKS</div>
-          {navLinks.map((l) => (
-            <a key={l} href={"#" + l} style={{ display: "block", fontFamily: F1, fontSize: 13, color: TD, textDecoration: "none", marginBottom: 8, textTransform: "capitalize" }}>{l}</a>
-          ))}
-          {legalLinks.map((l) => (
-            <a key={l.slug} href={"#/" + l.slug} style={{ display: "block", fontFamily: F1, fontSize: 13, color: TD, textDecoration: "none", marginBottom: 8 }}>{l.label}</a>
-          ))}
+
+        {/* Bottom bar */}
+        <div style={{ borderTop: `1px solid ${BD}`, paddingTop: 24, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+          <div style={{ fontFamily: F1, color: TD, fontSize: 12 }}>
+            <span style={{ color: A, fontWeight: 700 }}>Easy Express</span>{" © 2026 — A thesis project by "}<span style={{ color: T, fontWeight: 600 }}>Team 4R</span>{". Built with Unity."}
+          </div>
+          <div style={{ fontFamily: F1, color: `${TD}70`, fontSize: 11 }}>Not affiliated with EasyPC or PC Express.</div>
         </div>
-        <div>
-          <div style={{ fontFamily: F2, fontSize: 11, fontWeight: 700, color: T, letterSpacing: 2, marginBottom: 12 }}>CONTACT</div>
-          <p style={{ fontFamily: F1, fontSize: 13, color: A, marginBottom: 6 }}>easyexpress.4r@gmail.com</p>
-          <p style={{ fontFamily: F1, fontSize: 12, color: TD, lineHeight: 1.6 }}>For bug reports, feedback, or thesis inquiries.</p>
-        </div>
-      </div>
-      <div style={{ borderTop: `1px solid ${BD}`, paddingTop: 20, textAlign: "center" }}>
-        <div style={{ fontFamily: F1, color: TD, fontSize: 12 }}>
-          <span style={{ color: A, fontWeight: 700 }}>Easy Express</span>{" \u00A9 2026 \u2014 A thesis project by "}<span style={{ color: T }}>Team 4R</span>{". Built with Unity."}
-        </div>
-        <div style={{ marginTop: 6, fontFamily: F1, color: `${TD}80`, fontSize: 11 }}>Inspired by the Philippine PC retail experience. Not affiliated with EasyPC or PC Express.</div>
       </div>
     </footer>
   );
@@ -2192,7 +2503,7 @@ if (paymentStatus === "cancelled") {
           .ee-footer-grid a{transition:color 0.25s,padding-left 0.25s}
           .ee-footer-grid a:hover{color:${A} !important;padding-left:6px}
           @media (max-width: 1024px) { .ee-how-it-plays { flex-direction: column !important; } .ee-footer-grid { flex-direction: column !important; gap: 24px !important; } }
-          @media (max-width: 768px) { .ee-nav-links { display: none !important; } .ee-hamburger { display: flex !important; align-items: center; justify-content: center; } .ee-auth-modal { flex-direction: column !important; max-width: 95vw !important; min-height: auto !important; max-height: 90vh !important; } .ee-auth-sidebar { display: none !important; } .ee-news-item { flex-direction: column !important; gap: 10px !important; } .ee-news-header { flex-direction: column !important; gap: 4px !important; } .ee-spec-row { flex-direction: column !important; gap: 4px !important; align-items: flex-start !important; } .ee-grid-4 { grid-template-columns: 1fr !important; } .ee-grid-team { grid-template-columns: repeat(2, 1fr) !important; } .ee-admin-search { flex-direction: column !important; } .ee-admin-tabs { flex-direction: column !important; } .ee-data-grid { grid-template-columns: 1fr !important; } .ee-form-row { grid-template-columns: 1fr !important; } }
+          @media (max-width: 768px) { .ee-nav-links { display: none !important; } .ee-hamburger { display: flex !important; align-items: center; justify-content: center; } .ee-auth-modal { flex-direction: column !important; max-width: 95vw !important; min-height: auto !important; max-height: 90vh !important; } .ee-auth-sidebar { display: none !important; } .ee-news-item { flex-direction: column !important; gap: 10px !important; } .ee-news-header { flex-direction: column !important; gap: 4px !important; } .ee-spec-row { flex-direction: column !important; gap: 4px !important; align-items: flex-start !important; } .ee-grid-4 { grid-template-columns: 1fr !important; } .ee-features-grid { grid-template-columns: 1fr !important; } .ee-grid-team { grid-template-columns: repeat(2, 1fr) !important; } .ee-admin-search { flex-direction: column !important; } .ee-admin-tabs { flex-direction: column !important; } .ee-data-grid { grid-template-columns: 1fr !important; } .ee-form-row { grid-template-columns: 1fr !important; } }
           @media (max-width: 480px) { .ee-grid-team { grid-template-columns: 1fr !important; } }
         `}</style>
         <ToastContainer toasts={toasts} removeToast={removeToast} />
@@ -2215,7 +2526,7 @@ if (paymentStatus === "cancelled") {
         <Scenarios />
         <GallerySection />
         <NewsSection liveNews={liveNews} />
-        <PublicLeaderboards sessionTicket={sessionTicket} />
+        <PublicLeaderboards sessionTicket={sessionTicket} currentUser={currentUser} />
         <SystemRequirements />
         <FaqSection />
         <SupportSection addToast={addToast} />

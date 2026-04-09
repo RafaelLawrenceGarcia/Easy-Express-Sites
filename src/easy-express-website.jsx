@@ -2242,62 +2242,64 @@ function AdminDashboard({ addToast, onClose, adminKey, setAdminKey, authed, setA
   const labelStyle = { display: "block", marginBottom: 6, color: TD, fontSize: 11, fontWeight: 700, letterSpacing: 1.5, fontFamily: F1, textTransform: "uppercase" };
   const BAN_DURATIONS = [{ value: "24", label: "24 Hours" },{ value: "168", label: "7 Days" },{ value: "720", label: "30 Days" },{ value: "permanent", label: "Permanent" }];
 
-  const searchPlayer = async () => { setSearchErr(""); setSearchResult(null); setEditMsg(""); setBanMsg(""); setPlayerStats(null);
-    try { const res = await pfAdmin("GetUserAccountInfo", { Email: searchQuery.includes("@") ? searchQuery : undefined, PlayFabId: !searchQuery.includes("@") ? searchQuery : undefined }, adminKey);
-      const info = res.UserInfo; const dataRes = await pfServer("GetUserData", { PlayFabId: info.PlayFabId }, adminKey); const userData = {};
-      Object.entries(dataRes.Data || {}).forEach(([k, v]) => { userData[k] = v.Value; });
-      try { const statsRes = await pfServer("GetPlayerStatistics", { PlayFabId: info.PlayFabId, StatisticNames: ["Gold"] }, adminKey); const statsMap = {};
-        (statsRes.Statistics || []).forEach(s => { statsMap[s.StatisticName] = s.Value; }); setPlayerStats(statsMap); } catch (e) { setPlayerStats(null);
-      } setSearchResult({ id: info.PlayFabId, email: info.PrivateInfo?.Email || "N/A", displayName: info.TitleInfo?.DisplayName || "N/A", created: info.TitleInfo?.Created || "", banned: info.TitleInfo?.isBanned || false });
-      setEditData(userData); addToast({ type: "success", title: "Player Found", message: `Loaded data for ${info.PlayFabId}` }); } catch (e) { setSearchErr(e.message); } };
-  const updatePlayerData = async () => { if (!searchResult) return; setEditMsg("");
-    try { await pfAdmin("UpdateUserData", { PlayFabId: searchResult.id, Data: editData }, adminKey); setEditMsg("✅ Player data updated!");
-      addToast({ type: "success", title: "Data Saved", message: `Updated data for ${searchResult.id}` }); } catch (e) { setEditMsg("❌ " + e.message);
-    } };
-  const banPlayer = async () => { if (!searchResult) return; setBanMsg("");
-    try { const banPayload = { PlayFabId: searchResult.id, Reason: banReason || "Admin action" };
-      if (banDuration !== "permanent") banPayload.DurationInHours = parseInt(banDuration, 10); await pfAdmin("BanUsers", { Bans: [banPayload] }, adminKey);
-      const durationLabel = BAN_DURATIONS.find(d => d.value === banDuration)?.label || banDuration; setBanMsg(`✅ Player banned (${durationLabel}).`);
-      setSearchResult(prev => ({ ...prev, banned: true })); addToast({ type: "info", title: "Player Banned", message: `${searchResult.id} — ${durationLabel}` });
-    } catch (e) { setBanMsg("❌ " + e.message); } };
-  const unbanPlayer = async () => { if (!searchResult) return; setBanMsg("");
-    try { await pfAdmin("RevokeAllBansForUser", { PlayFabId: searchResult.id }, adminKey); setBanMsg("✅ All bans revoked.");
-      setSearchResult(prev => ({ ...prev, banned: false })); addToast({ type: "success", title: "Player Unbanned", message: searchResult.id + " has been unbanned." });
-    } catch (e) { setBanMsg("❌ " + e.message); } };
-  const addNewsItem = async () => { if (!newsTitle.trim() || !newsBody.trim()) { setNewsMsg("Fill in title and body."); return; } setNewsMsg("");
-    const newItem = { id: Date.now(), type: newsType, date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }), title: newsTitle, desc: newsBody, color: newsType === "UPDATE" ? OK : newsType === "EVENT" ? WN : newsType === "PATCH" ? A : A2 };
-    const updated = [newItem, ...displayNews];
-    onNewsUpdated(updated);
-    setNewsTitle(""); setNewsBody(""); setNewsMsg("✅ News published!");
-    addToast({ type: "success", title: "News Published", message: newsTitle });
-    try { await pfAdmin("SetTitleData", { Key: "GameNews", Value: JSON.stringify(updated) }, adminKey);
-    } catch (e) { setNewsMsg("⚠ Shown locally but PlayFab save failed: " + e.message); } };
-  const deleteNewsItem = async (id) => { const updated = displayNews.filter(n => n.id !== id);
-    onNewsUpdated(updated);
-    try { await pfAdmin("SetTitleData", { Key: "GameNews", Value: JSON.stringify(updated) }, adminKey);
-      addToast({ type: "info", title: "News Deleted", message: "Item removed." });
-    } catch (e) { setNewsMsg("⚠ Removed locally but PlayFab save failed: " + e.message); } };
-  const fetchLeaderboard = async () => { if (!lbStat) { setLbErr("Please enter a statistic name."); return; } setLbErr(""); setLbData([]);
-    try { const res = await pfServer("GetLeaderboard", { StatisticName: lbStat, StartPosition: 0, MaxResultsCount: 100 }, adminKey); setLbData(res.Leaderboard || []);
-      addToast({ type: "success", title: "Leaderboard Loaded", message: `Fetched top players for ${lbStat}` }); } catch (e) { setLbErr(e.message); } };
-  const fetchLogs = async () => { setLogEntries([{ time: new Date().toLocaleString(), event: "System", msg: "PlayFab event logging requires Insights. Configure PlayStream rules in your dashboard." }, { time: "", event: "Tip", msg: "Use Admin/GetUserAccountInfo or Admin/GetPlayerStatistics for per-player auditing." }]);
-    addToast({ type: "info", title: "Logs", message: "Event system info loaded." }); };
-  const loadRevenue = async () => {
-    setRevenueMsg(""); setRevenueLoaded(false);
-    try {
-      const td = await pfAdmin("GetTitleData", { Keys: ["GameRevenue"] }, adminKey);
-      if (td.Data?.GameRevenue) {
-        const parsed = JSON.parse(td.Data.GameRevenue);
-        const { donations: _d, ...rest } = parsed; 
-        setGameRevenue({ total: rest.total || "0", purchases: rest.purchases || "0", note: rest.note || "" });
-      } else {
-        setGameRevenue({ total: "0", purchases: "0", note: "" });
-      }
-    } catch (e) {
-      setGameRevenue({ total: "0", purchases: "0", note: "" });
-      setRevenueMsg("⚠ Could not load from PlayFab (" + e.message + "). Enter values manually and click Save.");
+  const searchPlayer = async () => { 
+    setSearchErr(""); setSearchResult(null); setEditMsg(""); setBanMsg(""); setPlayerStats(null);
+    
+    const query = searchQuery.trim();
+    if (!query) {
+      setSearchErr("Please enter a username, email, or PlayFab ID.");
+      return;
     }
-    setRevenueLoaded(true);
+
+    // Smartly detect what the admin typed
+    const isEmail = query.includes("@");
+    const isPlayFabId = !isEmail && /^[A-F0-9]{14,16}$/i.test(query); // PlayFab IDs are usually 16 hex chars
+    
+    // Build the correct PlayFab payload
+    const payload = {};
+    if (isEmail) payload.Email = query;
+    else if (isPlayFabId) payload.PlayFabId = query;
+    else payload.Username = query; 
+
+    try { 
+      const res = await pfAdmin("GetUserAccountInfo", payload, adminKey);
+      const info = res.UserInfo; 
+      
+      const dataRes = await pfServer("GetUserData", { PlayFabId: info.PlayFabId }, adminKey); 
+      const userData = {};
+      Object.entries(dataRes.Data || {}).forEach(([k, v]) => { userData[k] = v.Value; });
+      
+      try { 
+        const statsRes = await pfServer("GetPlayerStatistics", { PlayFabId: info.PlayFabId, StatisticNames: ["Gold"] }, adminKey); 
+        const statsMap = {};
+        (statsRes.Statistics || []).forEach(s => { statsMap[s.StatisticName] = s.Value; }); 
+        setPlayerStats(statsMap); 
+      } catch (e) { 
+        setPlayerStats(null);
+      } 
+      
+      setSearchResult({ id: info.PlayFabId, email: info.PrivateInfo?.Email || "N/A", displayName: info.TitleInfo?.DisplayName || "N/A", created: info.TitleInfo?.Created || "", banned: info.TitleInfo?.isBanned || false });
+      setEditData(userData); 
+      addToast({ type: "success", title: "Player Found", message: `Loaded data for ${info.PlayFabId}` }); 
+    } catch (e) { 
+      setSearchErr(e.message); 
+    } 
+  };
+
+  const updatePlayerData = async () => { 
+    if (!searchResult) return; 
+    setEditMsg("");
+    try { 
+      // PlayFab strictly requires all Data values to be strings. This prevents parameter errors.
+      const safeData = {};
+      Object.keys(editData).forEach(k => { safeData[k] = String(editData[k]); });
+
+      await pfAdmin("UpdateUserData", { PlayFabId: searchResult.id, Data: safeData }, adminKey); 
+      setEditMsg("✅ Player data updated!");
+      addToast({ type: "success", title: "Data Saved", message: `Updated data for ${searchResult.id}` }); 
+    } catch (e) { 
+      setEditMsg("❌ " + e.message);
+    } 
   };
   const saveRevenue = async () => {
     setRevenueMsg("");

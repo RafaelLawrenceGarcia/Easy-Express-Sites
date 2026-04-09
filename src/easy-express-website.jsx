@@ -532,7 +532,7 @@ function Scenarios() {
             <p style={{ color: TD, fontSize: 14, lineHeight: 1.8, fontFamily: F1, margin: 0, maxWidth: 520 }}>Walk around your shop in first-person. Pick up boxes, unpack PCs onto workstations, open cases and swap out faulty components. Interact with NPCs on the street to attract new customers, then manage orders through your in-shop computer OS.</p>
           </div>
           <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
-            {[{ v: "50+", l: "Components" }, { v: "12+", l: "Scenarios" }, { v: "\u221E", l: "Replayability" }].map((s) => (
+            {[{ v: "20+", l: "Components" }, { v: "5+", l: "Scenarios" }, { v: "\u221E", l: "Replayability" }].map((s) => (
               <div key={s.l} style={{ textAlign: "center" }}>
                 <div style={{ fontFamily: F2, fontSize: 28, fontWeight: 900, color: A }}>{s.v}</div>
                 <div style={{ fontFamily: F1, fontSize: 11, color: TD, fontWeight: 600, letterSpacing: 1, marginTop: 4 }}>{s.l}</div>

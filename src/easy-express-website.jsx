@@ -864,37 +864,55 @@ function PublicLeaderboards({ sessionTicket: propTicket, currentUser }) {
   // ── Initial fetch: top 25 + personal rank ─────────────────────────────────
   useEffect(() => {
     if (!sessionTicket) return;
+    let cancelled = false;
+
     async function fetchAll() {
       setIsLoading(true); setError(null);
       try {
-        // Top 25
+        // Step 1: fetch the top list
         const lbRes = await fetch(`https://${PLAYFAB_TITLE_ID}.playfabapi.com/Client/GetLeaderboard`, {
           method: "POST", headers: { "Content-Type": "application/json", "X-Authorization": sessionTicket },
           body: JSON.stringify({ StatisticName: "Gold", StartPosition: 0, MaxResultsCount: PAGE_SIZE })
         });
         const lbJson = await lbRes.json();
+        if (cancelled) return;
         if (lbJson.code !== 200) { setError(`Data Error: ${lbJson.errorMessage}`); return; }
         const rows = lbJson.data.Leaderboard || [];
         setLeaderboard(rows);
         setHasMore(rows.length === PAGE_SIZE);
 
-        // Personal rank — only for logged-in users, fetches their position in the full board
-        if (isLoggedIn) {
-          const myRes = await fetch(`https://${PLAYFAB_TITLE_ID}.playfabapi.com/Client/GetLeaderboardAroundPlayer`, {
-            method: "POST", headers: { "Content-Type": "application/json", "X-Authorization": sessionTicket },
-            body: JSON.stringify({ StatisticName: "Gold", MaxResultsCount: 1 })
-          });
-          const myJson = await myRes.json();
-          if (myJson.code === 200 && myJson.data.Leaderboard?.length) {
-            const me = myJson.data.Leaderboard.find(p => p.PlayFabId === myJson.data.PlayFabId)
-                     || myJson.data.Leaderboard[Math.floor(myJson.data.Leaderboard.length / 2)];
-            if (me) setMyRank(me);
-          }
+        // Step 2: personal rank — runs AFTER the top list is done, never concurrent
+        // Also wrapped in its own try/catch so a failure here never breaks the board
+        if (isLoggedIn && !cancelled) {
+          try {
+            // Small gap so PlayFab doesn't see two requests from the same player at once
+            await new Promise(r => setTimeout(r, 300));
+            if (cancelled) return;
+            const myRes = await fetch(`https://${PLAYFAB_TITLE_ID}.playfabapi.com/Client/GetLeaderboardAroundPlayer`, {
+              method: "POST", headers: { "Content-Type": "application/json", "X-Authorization": sessionTicket },
+              body: JSON.stringify({ StatisticName: "Gold", MaxResultsCount: 1 })
+            });
+            const myJson = await myRes.json();
+            if (!cancelled && myJson.code === 200 && myJson.data?.Leaderboard?.length) {
+              const me = myJson.data.Leaderboard.find(p => p.PlayFabId === myJson.data.PlayFabId)
+                       || myJson.data.Leaderboard[Math.floor(myJson.data.Leaderboard.length / 2)];
+              if (me) setMyRank(me);
+            }
+          } catch { /* personal rank failure is non-fatal — board still shows */ }
         }
-      } catch (e) { setError(`Fetch Error: ${e.message}`); }
-      finally { setIsLoading(false); }
+      } catch (e) {
+        if (!cancelled) setError(`Fetch Error: ${e.message}`);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
     }
-    fetchAll();
+
+    // Delay the whole fetch so EasyExpressSite's re-verify useEffect (checkFullGameOwnership)
+    // can finish first. Without this, all three PlayFab calls share the same ticket at the
+    // same millisecond → PlayFab error 1227 (concurrent edit conflict).
+    const delay = isLoggedIn ? 650 : Math.random() * 400;
+    const t = setTimeout(fetchAll, delay);
+    return () => { cancelled = true; clearTimeout(t); };
   }, [sessionTicket, isLoggedIn]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Load more ──────────────────────────────────────────────────────────────
@@ -1409,7 +1427,216 @@ function About() {
   );
 }
 
-function Footer() {
+/* ═══════════════════════════════════════════
+   LEGAL MODAL
+   ═══════════════════════════════════════════ */
+const LEGAL_CONTENT = {
+  terms: {
+    title: "Terms of Service",
+    icon: "📄",
+    color: A,
+    lastUpdated: "April 9, 2026",
+    sections: [
+      {
+        heading: "1. Acceptance of Terms",
+        body: "By creating an account, downloading, or playing Easy Express, you agree to be bound by these Terms of Service. Easy Express is a thesis project developed by Team 4R as part of their Bachelor of Science in Computer Science program. If you do not agree to these terms, please do not use the game or this website.",
+      },
+      {
+        heading: "2. Account Registration",
+        body: "You must create an account to access Easy Express. You are responsible for maintaining the confidentiality of your account credentials. You must provide accurate information during registration, including a valid email address for OTP verification. You may not share, sell, or transfer your account to another person. Team 4R reserves the right to suspend or terminate accounts that violate these terms.",
+      },
+      {
+        heading: "3. Use of the Game",
+        body: "Easy Express is licensed to you for personal, non-commercial use only. You may not reverse-engineer, decompile, or modify the game files. You may not use any cheats, exploits, or third-party software to gain an unfair advantage in the leaderboards. Attempting to disrupt or overload our servers or PlayFab services is strictly prohibited.",
+      },
+      {
+        heading: "4. User-Generated Content & Conduct",
+        body: "Easy Express does not currently support user-generated content. Players are expected to conduct themselves respectfully within the game community. Harassment, hate speech, or abusive behavior toward other players will result in account suspension. Team 4R reserves the right to ban any player whose conduct is deemed harmful to the community.",
+      },
+      {
+        heading: "5. Purchases & Payments",
+        body: "The Full Game license is a one-time purchase of ₱299.00 (Philippine Pesos) processed via PayMongo. By purchasing, you agree to PayMongo's terms of service. All transactions are final unless they qualify under our Refund Policy. Team 4R is not responsible for payment failures caused by your bank or payment provider.",
+      },
+      {
+        heading: "6. Intellectual Property",
+        body: "Easy Express, including its game engine, assets, code, and website, is the intellectual property of Team 4R. The game is built using Unity Engine. The name 'Easy Express' and all related logos are original works created for this thesis project. We are not affiliated with EasyPC, PC Express, or any other commercial PC retailer.",
+      },
+      {
+        heading: "7. Disclaimer of Warranties",
+        body: "Easy Express is provided 'as is' as an academic thesis project. Team 4R makes no warranties, expressed or implied, regarding the game's fitness for any particular purpose or uninterrupted availability. As a student project, the game may contain bugs or experience downtime without prior notice.",
+      },
+      {
+        heading: "8. Limitation of Liability",
+        body: "To the maximum extent permitted by law, Team 4R and its members shall not be liable for any indirect, incidental, or consequential damages arising from your use of Easy Express. Our total liability to you shall not exceed the amount you paid for the Full Game license.",
+      },
+      {
+        heading: "9. Changes to Terms",
+        body: "Team 4R may update these Terms of Service at any time. Continued use of Easy Express after changes are posted constitutes acceptance of the new terms. We will notify users of significant changes via the News section of this website.",
+      },
+      {
+        heading: "10. Contact",
+        body: "For questions regarding these Terms of Service, please contact us at easyexpress.4r@gmail.com.",
+      },
+    ],
+  },
+
+  privacy: {
+    title: "Privacy Policy",
+    icon: "🔒",
+    color: PU,
+    lastUpdated: "April 9, 2026",
+    sections: [
+      {
+        heading: "1. Introduction",
+        body: "Team 4R is committed to protecting your privacy. This Privacy Policy explains what personal data we collect, how we use it, and your rights regarding that data. Easy Express is an academic thesis project. Your data is used solely for game account management and research purposes.",
+      },
+      {
+        heading: "2. Data We Collect",
+        body: "We collect the following information when you register: your full name, username, email address, and password (stored encrypted via PlayFab). During gameplay, we collect your in-game statistics (Gold earned, scenarios completed), playtime data, and download events. We do not collect your physical address, phone number, or financial information beyond what PayMongo processes independently for payments.",
+      },
+      {
+        heading: "3. How We Use Your Data",
+        body: "Your data is used to: authenticate your account and maintain your login session; save and sync your in-game progress across devices; display your rank on the Global Leaderboard; send OTP verification emails during registration; process and verify your Full Game purchase; and compile anonymized statistics for our CS thesis research and defense documentation.",
+      },
+      {
+        heading: "4. Third-Party Services",
+        body: "We use the following third-party services to operate Easy Express: PlayFab (Microsoft) for game backend, account storage, and leaderboards; EmailJS for sending OTP and support emails; PayMongo for payment processing; Vercel for website hosting. Each of these services has their own privacy policies. We encourage you to review them. We do not sell your personal data to any third party.",
+      },
+      {
+        heading: "5. Data Storage & Security",
+        body: "Your account data is stored securely on Microsoft PlayFab servers. Passwords are never stored in plaintext — they are hashed and managed by PlayFab's authentication system. We use HTTPS for all data transmission. While we implement industry-standard security practices, no system is 100% secure. Please use a strong, unique password for your account.",
+      },
+      {
+        heading: "6. Leaderboard Visibility",
+        body: "Your display name and Gold statistic are publicly visible on the Global Leaderboard. Your email address is never displayed publicly. If you wish to be removed from the leaderboard, you may contact us to delete your account.",
+      },
+      {
+        heading: "7. Survey Data",
+        body: "The Thesis Evaluation survey is entirely voluntary and anonymous. Survey responses are sent directly to our team email and used solely for academic research and defense documentation. We do not link survey responses to your account.",
+      },
+      {
+        heading: "8. Children's Privacy",
+        body: "Easy Express is not directed at children under 13 years of age. We do not knowingly collect personal data from children under 13. If you believe a child has provided us with personal data, please contact us immediately at easyexpress.4r@gmail.com.",
+      },
+      {
+        heading: "9. Your Rights",
+        body: "You have the right to access the personal data we hold about you, request correction of inaccurate data, request deletion of your account and associated data, and withdraw consent for data processing. To exercise any of these rights, email us at easyexpress.4r@gmail.com.",
+      },
+      {
+        heading: "10. Contact",
+        body: "For privacy-related concerns, contact Team 4R at easyexpress.4r@gmail.com. We will respond within 7 business days.",
+      },
+    ],
+  },
+
+  refunds: {
+    title: "Refund Policy",
+    icon: "💳",
+    color: OK,
+    lastUpdated: "April 9, 2026",
+    sections: [
+      {
+        heading: "1. Overview",
+        body: "Easy Express offers a Full Game license for a one-time purchase of ₱299.00 (Philippine Pesos) processed via PayMongo (QR Ph / InstaPay). We want you to be satisfied with your purchase. Please read this Refund Policy carefully before completing your purchase.",
+      },
+      {
+        heading: "2. Eligibility for Refund",
+        body: "You may be eligible for a full refund if: you were charged but your account was not unlocked (payment processing error); you were charged multiple times for the same purchase; the game is completely unplayable on a system that meets our minimum specifications and the issue cannot be resolved by our support team. Refund requests must be submitted within 7 days of purchase.",
+      },
+      {
+        heading: "3. Non-Refundable Situations",
+        body: "Refunds will NOT be issued in the following cases: you changed your mind after purchase; you no longer want to play the game; you purchased the Full Game when a free Demo was available; your account was suspended or banned for violating our Terms of Service; you experienced minor bugs or issues that do not prevent gameplay; technical issues caused by hardware that does not meet our minimum system requirements.",
+      },
+      {
+        heading: "4. How to Request a Refund",
+        body: "To request a refund, email easyexpress.4r@gmail.com with the subject line 'Refund Request'. Include your registered email address, your PlayFab ID (visible in your account), the date of purchase, the PayMongo transaction reference number, and a description of the issue. We will review your request within 5 business days.",
+      },
+      {
+        heading: "5. Refund Processing",
+        body: "Approved refunds will be processed through PayMongo back to your original payment method. Depending on your bank or e-wallet provider, refunds may take 3–10 business days to appear. Team 4R does not control the speed of your bank or payment provider's processing time.",
+      },
+      {
+        heading: "6. Demo Version",
+        body: "We strongly encourage all users to try the free Demo version before purchasing the Full Game. The Demo includes full access to 2 scenarios so you can evaluate the game before committing. Purchasing the Full Game after playing the Demo constitutes informed acceptance of the product.",
+      },
+      {
+        heading: "7. Payment Provider",
+        body: "Payments are processed by PayMongo, a PCI-DSS compliant payment gateway. Team 4R does not store your payment card details or GCash information. If you experience issues with a payment charge that Team 4R cannot resolve, you may contact PayMongo directly or dispute the charge with your bank.",
+      },
+      {
+        heading: "8. Contact",
+        body: "For all refund requests and payment-related concerns, contact us at easyexpress.4r@gmail.com. Please allow up to 5 business days for a response. We are a student team and appreciate your patience.",
+      },
+    ],
+  },
+};
+
+function LegalModal({ page, onClose }) {
+  const content = LEGAL_CONTENT[page];
+  if (!content) return null;
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    return () => { window.removeEventListener("keydown", onKey); document.body.style.overflow = ""; };
+  }, []);
+
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 500, background: "rgba(0,0,0,0.88)", backdropFilter: "blur(14px)", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px", animation: "fadeIn 0.2s ease-out" }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: CARD, border: `1px solid ${content.color}30`, borderRadius: 20, width: "100%", maxWidth: 680, maxHeight: "88vh", display: "flex", flexDirection: "column", animation: "modalSlideUp 0.35s cubic-bezier(0.16,1,0.3,1)", overflow: "hidden" }}>
+
+        {/* Sticky header */}
+        <div style={{ flexShrink: 0, padding: "22px 28px 18px", borderBottom: `1px solid ${BD}`, position: "relative", background: CARD }}>
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg,${content.color},${content.color}40,transparent)`, borderRadius: "20px 20px 0 0" }} />
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ width: 38, height: 38, borderRadius: 10, background: `${content.color}15`, border: `1px solid ${content.color}30`, display: "grid", placeItems: "center", fontSize: 18 }}>{content.icon}</div>
+              <div>
+                <div style={{ fontFamily: F2, fontSize: 16, fontWeight: 800, color: T }}>{content.title}</div>
+                <div style={{ fontFamily: F1, fontSize: 10, color: TD, marginTop: 2 }}>Last updated: {content.lastUpdated} · Easy Express by Team 4R</div>
+              </div>
+            </div>
+            <button onClick={onClose} style={{ width: 34, height: 34, borderRadius: "50%", background: "rgba(255,255,255,0.06)", border: `1px solid ${BD}`, color: TD, fontSize: 16, cursor: "pointer", display: "grid", placeItems: "center", flexShrink: 0 }}>✕</button>
+          </div>
+        </div>
+
+        {/* Scrollable body */}
+        <div style={{ flex: 1, overflowY: "auto", padding: "28px 28px 32px" }}>
+          {content.sections.map((s, i) => (
+            <div key={i} style={{ marginBottom: i < content.sections.length - 1 ? 28 : 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                <div style={{ width: 4, height: 18, borderRadius: 2, background: content.color, flexShrink: 0 }} />
+                <h3 style={{ fontFamily: F2, fontSize: 13, fontWeight: 700, color: content.color, margin: 0, letterSpacing: 0.5 }}>{s.heading}</h3>
+              </div>
+              <p style={{ fontFamily: F1, fontSize: 13, color: TD, lineHeight: 1.85, margin: "0 0 0 14px" }}>{s.body}</p>
+            </div>
+          ))}
+
+          {/* Footer note */}
+          <div style={{ marginTop: 32, padding: "16px 20px", background: BG, borderRadius: 12, border: `1px solid ${BD}` }}>
+            <div style={{ fontFamily: F1, fontSize: 11, color: TD, lineHeight: 1.7 }}>
+              <span style={{ color: content.color, fontWeight: 700 }}>Easy Express</span> is an academic thesis project by Team 4R, Bachelor of Science in Computer Science, AY 2025–2026. For questions or concerns, contact us at <span style={{ color: A }}>easyexpress.4r@gmail.com</span>.
+            </div>
+          </div>
+        </div>
+
+        {/* Footer buttons */}
+        <div style={{ flexShrink: 0, padding: "16px 28px", borderTop: `1px solid ${BD}`, display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          {Object.entries(LEGAL_CONTENT).filter(([k]) => k !== page).map(([k, v]) => (
+            <button key={k} onClick={() => { onClose(); setTimeout(() => window.dispatchEvent(new CustomEvent("ee-open-legal", { detail: k })), 50); }}
+              style={{ padding: "8px 16px", background: "transparent", border: `1px solid ${BD}`, borderRadius: 8, color: TD, fontFamily: F1, fontSize: 11, fontWeight: 700, cursor: "pointer", letterSpacing: 0.5 }}>
+              {v.title}
+            </button>
+          ))}
+          <button onClick={onClose} style={{ padding: "8px 20px", background: `linear-gradient(135deg,${content.color},${content.color}aa)`, border: "none", borderRadius: 8, color: BG, fontFamily: F1, fontSize: 12, fontWeight: 800, cursor: "pointer", letterSpacing: 1 }}>CLOSE</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Footer({ onLegalOpen }) {
   const navLinks = ["features", "scenarios", "gallery", "news", "leaderboards", "specs", "faq", "support", "about"];
   const legalLinks = [
     { slug: "terms",   label: "Terms of Service" },
@@ -1455,8 +1682,9 @@ function Footer() {
           <div>
             <div style={{ fontFamily: F2, fontSize: 10, fontWeight: 700, color: WN, letterSpacing: 2.5, marginBottom: 16, textTransform: "uppercase" }}>Legal</div>
             {legalLinks.map((l) => (
-              <a key={l.slug} href={"#/" + l.slug} style={{ display: "block", fontFamily: F1, fontSize: 12, color: TD, textDecoration: "none", marginBottom: 8 }}
-                onMouseEnter={e => e.target.style.color = T} onMouseLeave={e => e.target.style.color = TD}>{l.label}</a>
+              <button key={l.slug} onClick={() => onLegalOpen(l.slug)}
+                style={{ display: "block", fontFamily: F1, fontSize: 12, color: TD, textDecoration: "none", marginBottom: 8, background: "none", border: "none", cursor: "pointer", padding: 0, textAlign: "left" }}
+                onMouseEnter={e => e.target.style.color = T} onMouseLeave={e => e.target.style.color = TD}>{l.label}</button>
             ))}
             <div style={{ marginTop: 20 }}>
               <div style={{ fontFamily: F2, fontSize: 10, fontWeight: 700, color: OK, letterSpacing: 2.5, marginBottom: 12, textTransform: "uppercase" }}>Platform</div>
@@ -2329,6 +2557,16 @@ export default function EasyExpressSite() {
   // Keep adminAuthed in sync — also covers fresh login within the same session
   useEffect(() => { if (isAdmin) setAdminAuthed(true); }, [isAdmin]);
 
+  // Legal modal state
+  const [legalPage, setLegalPage] = useState(null); // "terms" | "privacy" | "refunds" | null
+
+  // Listen for cross-link navigation between legal pages (footer buttons in LegalModal)
+  useEffect(() => {
+    const handler = (e) => setLegalPage(e.detail);
+    window.addEventListener("ee-open-legal", handler);
+    return () => window.removeEventListener("ee-open-legal", handler);
+  }, []);
+
   // Fetch live news on mount
   useEffect(() => {
   let isFetching = false;
@@ -2531,7 +2769,7 @@ if (paymentStatus === "cancelled") {
         <FaqSection />
         <SupportSection addToast={addToast} />
         <About />
-        <Footer />
+        <Footer onLegalOpen={setLegalPage} />
 
         {authModal && (
           <AuthModal
@@ -2579,6 +2817,7 @@ if (paymentStatus === "cancelled") {
             onNewsUpdated={setLiveNews}
           />
         )}
+        {legalPage && <LegalModal page={legalPage} onClose={() => setLegalPage(null)} />}
       </div>
     </ErrorBoundary>
   );

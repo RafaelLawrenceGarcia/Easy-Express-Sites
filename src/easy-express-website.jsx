@@ -2253,14 +2253,44 @@ function AdminDashboard({ addToast, onClose, adminKey, setAdminKey, authed, setA
     try { const res = await pfAdmin("GetUserAccountInfo", { Email: searchQuery.includes("@") ? searchQuery : undefined, PlayFabId: !searchQuery.includes("@") ? searchQuery : undefined }, adminKey);
       const info = res.UserInfo; const dataRes = await pfServer("GetUserData", { PlayFabId: info.PlayFabId }, adminKey); const userData = {};
       Object.entries(dataRes.Data || {}).forEach(([k, v]) => { userData[k] = v.Value; });
-      try { const statsRes = await pfServer("GetPlayerStatistics", { PlayFabId: info.PlayFabId, StatisticNames: ["Gold"] }, adminKey); const statsMap = {};
-        (statsRes.Statistics || []).forEach(s => { statsMap[s.StatisticName] = s.Value; }); setPlayerStats(statsMap); } catch (e) { setPlayerStats(null);
-      } setSearchResult({ id: info.PlayFabId, email: info.PrivateInfo?.Email || "N/A", displayName: info.TitleInfo?.DisplayName || "N/A", created: info.TitleInfo?.Created || "", banned: info.TitleInfo?.isBanned || false });
-      setEditData(userData); addToast({ type: "success", title: "Player Found", message: `Loaded data for ${info.PlayFabId}` }); } catch (e) { setSearchErr(e.message); } };
-  const updatePlayerData = async () => { if (!searchResult) return; setEditMsg("");
-    try { await pfAdmin("UpdateUserData", { PlayFabId: searchResult.id, Data: editData }, adminKey); setEditMsg("✅ Player data updated!");
-      addToast({ type: "success", title: "Data Saved", message: `Updated data for ${searchResult.id}` }); } catch (e) { setEditMsg("❌ " + e.message);
-    } };
+      // REPLACE WITH:
+      let statsMap = {};
+      try {
+        const statsRes = await pfServer("GetPlayerStatistics", { PlayFabId: info.PlayFabId, StatisticNames: ["Gold"] }, adminKey);
+        (statsRes.Statistics || []).forEach(s => { statsMap[s.StatisticName] = s.Value; });
+        setPlayerStats(statsMap);
+      } catch (e) {
+        setPlayerStats(null);
+      }
+      setSearchResult({ id: info.PlayFabId, email: info.PrivateInfo?.Email || "N/A", displayName: info.TitleInfo?.DisplayName || "N/A", created: info.TitleInfo?.Created || "", banned: info.TitleInfo?.isBanned || false });
+      setEditData(Object.assign({}, userData, { Gold: String(statsMap.Gold || 0) }));
+      addToast({ type: "success", title: "Player Found", message: `Loaded data for ${info.PlayFabId}` }); addToast({ type: "success", title: "Player Found", message: `Loaded data for ${info.PlayFabId}` }); } catch (e) { setSearchErr(e.message); } };
+  const updatePlayerData = async () => {
+    if (!searchResult) return; setEditMsg("");
+    try {
+      // Separate Gold from other data
+      const dataToSave = {};
+      Object.entries(editData).forEach(([k, v]) => {
+        if (k !== "Gold") dataToSave[k] = v;
+      });
+
+      if (Object.keys(dataToSave).length > 0) {
+        await pfAdmin("UpdateUserData", { PlayFabId: searchResult.id, Data: dataToSave }, adminKey);
+      }
+
+      // Update Gold as a statistic separately
+      if (editData.Gold !== undefined && editData.Gold !== "") {
+        await pfServer("UpdatePlayerStatistics", {
+          PlayFabId: searchResult.id,
+          Statistics: [{ StatisticName: "Gold", Value: parseInt(editData.Gold, 10) }]
+        }, adminKey);
+        setPlayerStats(prev => ({ ...prev, Gold: parseInt(editData.Gold, 10) }));
+      }
+
+      setEditMsg("✅ Player data updated!");
+      addToast({ type: "success", title: "Data Saved", message: `Updated data for ${searchResult.id}` });
+    } catch (e) { setEditMsg("❌ " + e.message); }
+  };
   const banPlayer = async () => {
     if (!searchResult) return; setBanMsg("");
     try {
@@ -2268,7 +2298,7 @@ function AdminDashboard({ addToast, onClose, adminKey, setAdminKey, authed, setA
       if (banDuration !== "permanent") banPayload.DurationInHours = parseInt(banDuration, 10);
       await pfAdmin("BanUsers", { Bans: [banPayload] }, adminKey);
 
-      // ── NEW: add to BannedPlayers list in TitleData ──
+      // Add to BannedPlayers list in TitleData
       let bannedList = [];
       try {
         const td = await pfAdmin("GetTitleData", { Keys: ["BannedPlayers"] }, adminKey);
@@ -2277,12 +2307,11 @@ function AdminDashboard({ addToast, onClose, adminKey, setAdminKey, authed, setA
       if (!bannedList.includes(searchResult.id)) bannedList.push(searchResult.id);
       await pfAdmin("SetTitleData", { Key: "BannedPlayers", Value: JSON.stringify(bannedList) }, adminKey);
       setBannedIds(bannedList);
-      // ────────────────────────────────────────────────
 
       const durationLabel = BAN_DURATIONS.find(d => d.value === banDuration)?.label || banDuration;
-      setBanMsg(`✅ Player banned (${durationLabel}).`);
+      setBanMsg("✅ Player banned (" + durationLabel + ").");
       setSearchResult(prev => ({ ...prev, banned: true }));
-      addToast({ type: "info", title: "Player Banned", message: `${searchResult.id} — ${durationLabel}` });
+      addToast({ type: "info", title: "Player Banned", message: searchResult.id + " — " + durationLabel });
     } catch (e) { setBanMsg("❌ " + e.message); }
   };
   const unbanPlayer = async () => {

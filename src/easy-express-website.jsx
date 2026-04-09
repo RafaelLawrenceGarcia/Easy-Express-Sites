@@ -860,9 +860,209 @@ function FaqSection() {
   );
 }
 
+/* ═══════════════════════════════════════════
+   SURVEY MODAL
+   ═══════════════════════════════════════════ */
+function SurveyModal({ onClose, addToast }) {
+  const QUESTIONS = [
+    { id: "q1", type: "rating", label: "How would you rate Easy Express overall?", required: true },
+    { id: "q2", type: "rating", label: "How intuitive was the PC building mechanic?", required: true },
+    { id: "q3", type: "rating", label: "How educational was the game content?", required: true },
+    { id: "q4", type: "rating", label: "How would you rate the overall UI and visuals?", required: true },
+    { id: "q5", type: "rating", label: "How likely are you to recommend Easy Express?", required: true },
+    { id: "q6", type: "choice", label: "Which feature did you enjoy the most?", required: true,
+      options: ["PC Assembly", "Shop Management", "Troubleshooting / Diagnosing", "Customer Scenarios", "Story / Progression"] },
+    { id: "q7", type: "choice", label: "How long did you play the beta?", required: true,
+      options: ["Less than 30 minutes", "30 min – 1 hour", "1–2 hours", "More than 2 hours"] },
+    { id: "q8", type: "choice", label: "Did the game help you learn about PC hardware?", required: true,
+      options: ["Yes, a lot!", "Somewhat", "A little", "Not really"] },
+    { id: "q9", type: "text", label: "What did you like most about Easy Express?", required: false, placeholder: "Tell us what stood out..." },
+    { id: "q10", type: "text", label: "What should we improve or add?", required: false, placeholder: "Any bugs, suggestions, or ideas..." },
+    { id: "q11", type: "text", label: "Any final comments for Team 4R?", required: false, placeholder: "Anything else you'd like to say..." },
+  ];
+
+  const [answers, setAnswers] = useState({});
+  const [step, setStep] = useState(0); // 0 = intro, 1-N = questions, N+1 = done
+  const [submitting, setSubmitting] = useState(false);
+  const TOTAL = QUESTIONS.length;
+  const currentQ = QUESTIONS[step - 1];
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    return () => { window.removeEventListener("keydown", onKey); document.body.style.overflow = ""; };
+  }, []);
+
+  const setAnswer = (id, val) => setAnswers(prev => ({ ...prev, [id]: val }));
+
+  const canAdvance = () => {
+    if (step === 0) return true;
+    if (step > TOTAL) return true;
+    const q = QUESTIONS[step - 1];
+    if (!q.required) return true;
+    return !!answers[q.id];
+  };
+
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    const lines = QUESTIONS.map(q => `${q.label}\n→ ${answers[q.id] || "(skipped)"}`).join("\n\n");
+    try {
+      await emailjs.send(
+        'service_3ixsdwk',
+        'template_wo458oj',
+        { from_email: "survey@easyexpress", category: "SURVEY", message: `📋 THESIS EVALUATION SURVEY\n\n${lines}` },
+        '3LQw31VLjecEmrw0D'
+      );
+      setStep(TOTAL + 1);
+    } catch (e) {
+      addToast({ type: "error", title: "Submission Failed", message: "Could not send survey. Please try again." });
+    }
+    setSubmitting(false);
+  };
+
+  const progress = step === 0 ? 0 : Math.round((step / TOTAL) * 100);
+
+  const inputStyle = { width: "100%", padding: "12px 14px", background: BG, border: `1px solid ${BD}`, borderRadius: 8, color: T, fontSize: 14, fontFamily: F1, outline: "none", boxSizing: "border-box", resize: "vertical" };
+
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 400, background: "rgba(0,0,0,0.88)", backdropFilter: "blur(12px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, animation: "fadeIn 0.2s ease-out" }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: CARD, border: `1px solid ${PU}40`, borderRadius: 20, width: "100%", maxWidth: 520, maxHeight: "90vh", overflowY: "auto", position: "relative", animation: "modalSlideUp 0.35s cubic-bezier(0.16,1,0.3,1)" }}>
+
+        {/* Top gradient bar */}
+        <div style={{ position: "sticky", top: 0, zIndex: 2, background: CARD, borderRadius: "20px 20px 0 0", borderBottom: `1px solid ${BD}`, padding: "20px 28px 16px" }}>
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, borderRadius: "20px 20px 0 0", background: `linear-gradient(90deg,${PU},${A})` }} />
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: step > 0 && step <= TOTAL ? 12 : 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: `${PU}20`, border: `1px solid ${PU}40`, display: "grid", placeItems: "center", fontSize: 16 }}>📋</div>
+              <span style={{ fontFamily: F2, fontSize: 13, fontWeight: 700, color: T, letterSpacing: 1 }}>THESIS EVALUATION</span>
+            </div>
+            <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,0.06)", border: `1px solid ${BD}`, color: TD, fontSize: 16, cursor: "pointer", display: "grid", placeItems: "center" }}>✕</button>
+          </div>
+          {/* Progress bar */}
+          {step > 0 && step <= TOTAL && (
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                <span style={{ fontFamily: F1, fontSize: 10, color: TD }}>Question {step} of {TOTAL}</span>
+                <span style={{ fontFamily: F1, fontSize: 10, color: PU, fontWeight: 700 }}>{progress}%</span>
+              </div>
+              <div style={{ height: 4, background: BD, borderRadius: 2, overflow: "hidden" }}>
+                <div style={{ height: "100%", width: `${progress}%`, background: `linear-gradient(90deg,${PU},${A})`, borderRadius: 2, transition: "width 0.4s cubic-bezier(0.16,1,0.3,1)" }} />
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div style={{ padding: "28px 28px 32px" }}>
+
+          {/* ── Intro ── */}
+          {step === 0 && (
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>🎮</div>
+              <h2 style={{ fontFamily: F2, fontSize: 20, fontWeight: 800, color: T, margin: "0 0 12px" }}>Help Us Graduate!</h2>
+              <p style={{ fontFamily: F1, fontSize: 13, color: TD, lineHeight: 1.7, margin: "0 0 8px" }}>
+                This survey is part of our CS thesis defense evaluation for <span style={{ color: A, fontWeight: 700 }}>Easy Express</span>. It takes about <span style={{ color: WN, fontWeight: 700 }}>2–3 minutes</span>.
+              </p>
+              <p style={{ fontFamily: F1, fontSize: 12, color: TD, lineHeight: 1.6, margin: "0 0 28px", opacity: 0.7 }}>
+                Your responses are anonymous and used solely for academic research. There are {TOTAL} questions.
+              </p>
+              <button onClick={() => setStep(1)} className="ee-btn-glow" style={{ width: "100%", padding: 14, background: `linear-gradient(135deg,${PU},${A})`, border: "none", borderRadius: 10, color: BG, fontFamily: F1, fontWeight: 800, fontSize: 15, cursor: "pointer", letterSpacing: 1 }}>
+                START SURVEY →
+              </button>
+            </div>
+          )}
+
+          {/* ── Questions ── */}
+          {step >= 1 && step <= TOTAL && currentQ && (
+            <div style={{ animation: "fadeSlideUp 0.3s ease-out" }}>
+              <p style={{ fontFamily: F1, fontSize: 11, color: PU, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 8 }}>
+                {currentQ.required ? "Required" : "Optional"}
+              </p>
+              <h3 style={{ fontFamily: F2, fontSize: 17, fontWeight: 700, color: T, margin: "0 0 24px", lineHeight: 1.4 }}>
+                {currentQ.label}
+              </h3>
+
+              {/* Star Rating */}
+              {currentQ.type === "rating" && (
+                <div style={{ display: "flex", gap: 10, justifyContent: "center", marginBottom: 8 }}>
+                  {[1, 2, 3, 4, 5].map(star => (
+                    <button key={star} onClick={() => setAnswer(currentQ.id, star)}
+                      style={{ width: 52, height: 52, borderRadius: 12, background: answers[currentQ.id] >= star ? `${WN}25` : BG, border: `2px solid ${answers[currentQ.id] >= star ? WN : BD}`, fontSize: 26, cursor: "pointer", transition: "all 0.2s", transform: answers[currentQ.id] >= star ? "scale(1.1)" : "scale(1)" }}>
+                      {answers[currentQ.id] >= star ? "⭐" : "☆"}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {answers[currentQ.id] && currentQ.type === "rating" && (
+                <div style={{ textAlign: "center", fontFamily: F1, fontSize: 12, color: WN, fontWeight: 700, marginBottom: 4 }}>
+                  {["", "Poor", "Fair", "Good", "Great", "Excellent!"][answers[currentQ.id]]}
+                </div>
+              )}
+
+              {/* Multiple Choice */}
+              {currentQ.type === "choice" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {currentQ.options.map(opt => (
+                    <button key={opt} onClick={() => setAnswer(currentQ.id, opt)}
+                      style={{ padding: "12px 16px", borderRadius: 10, background: answers[currentQ.id] === opt ? `${PU}18` : BG, border: `2px solid ${answers[currentQ.id] === opt ? PU : BD}`, color: answers[currentQ.id] === opt ? T : TD, fontFamily: F1, fontSize: 13, fontWeight: answers[currentQ.id] === opt ? 700 : 400, cursor: "pointer", textAlign: "left", transition: "all 0.2s" }}>
+                      {answers[currentQ.id] === opt ? "✓ " : ""}{opt}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Open Text */}
+              {currentQ.type === "text" && (
+                <textarea rows={4} style={inputStyle} placeholder={currentQ.placeholder} value={answers[currentQ.id] || ""} onChange={e => setAnswer(currentQ.id, e.target.value)} />
+              )}
+
+              {/* Navigation */}
+              <div style={{ display: "flex", gap: 10, marginTop: 28 }}>
+                <button onClick={() => setStep(s => s - 1)} style={{ padding: "12px 20px", background: "transparent", border: `1px solid ${BD}`, borderRadius: 10, color: TD, fontFamily: F1, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>← BACK</button>
+                {step < TOTAL ? (
+                  <button onClick={() => { if (canAdvance()) setStep(s => s + 1); }} disabled={currentQ.required && !answers[currentQ.id]}
+                    style={{ flex: 1, padding: 13, background: canAdvance() ? `linear-gradient(135deg,${PU},${A})` : BD, border: "none", borderRadius: 10, color: canAdvance() ? BG : TD, fontFamily: F1, fontWeight: 800, fontSize: 14, cursor: canAdvance() ? "pointer" : "not-allowed", letterSpacing: 1, transition: "all 0.2s" }}>
+                    NEXT →
+                  </button>
+                ) : (
+                  <button onClick={handleSubmit} disabled={submitting || (currentQ.required && !answers[currentQ.id])}
+                    style={{ flex: 1, padding: 13, background: `linear-gradient(135deg,${OK},${A})`, border: "none", borderRadius: 10, color: BG, fontFamily: F1, fontWeight: 800, fontSize: 14, cursor: submitting ? "not-allowed" : "pointer", letterSpacing: 1, opacity: submitting ? 0.7 : 1 }}>
+                    {submitting ? "SUBMITTING..." : "SUBMIT ✓"}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── Done ── */}
+          {step === TOTAL + 1 && (
+            <div style={{ textAlign: "center", padding: "20px 0" }}>
+              <div style={{ width: 80, height: 80, borderRadius: "50%", background: `${OK}15`, border: `2px solid ${OK}40`, display: "grid", placeItems: "center", margin: "0 auto 20px", animation: "successPop 0.6s cubic-bezier(0.16,1,0.3,1) both" }}>
+                <span style={{ fontSize: 40 }}>✓</span>
+              </div>
+              <h2 style={{ fontFamily: F2, fontSize: 20, fontWeight: 800, color: OK, margin: "0 0 10px" }}>Thank You!</h2>
+              <p style={{ fontFamily: F1, fontSize: 14, color: TD, lineHeight: 1.7, margin: "0 0 8px" }}>
+                Your feedback has been submitted to <span style={{ color: A, fontWeight: 700 }}>Team 4R</span>.
+              </p>
+              <p style={{ fontFamily: F1, fontSize: 13, color: TD, lineHeight: 1.6, marginBottom: 28, opacity: 0.8 }}>
+                It will directly contribute to our thesis defense documentation. We really appreciate your time! 🎓
+              </p>
+              <button onClick={onClose} style={{ width: "100%", padding: 14, background: `linear-gradient(135deg,${OK},${A})`, border: "none", borderRadius: 10, color: BG, fontFamily: F1, fontWeight: 800, fontSize: 14, cursor: "pointer", letterSpacing: 1 }}>
+                CLOSE
+              </button>
+            </div>
+          )}
+
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SupportSection({ addToast }) {
   const [formData, setFormData] = useState({ email: "", category: "BUG", message: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSurvey, setShowSurvey] = useState(false);
   const inputStyle = { width: "100%", padding: "12px 14px", background: BG, border: `1px solid ${BD}`, borderRadius: 8, color: T, fontSize: 14, fontFamily: F1, outline: "none", transition: "border-color 0.3s", boxSizing: "border-box" };
   const labelStyle = { display: "block", marginBottom: 6, color: TD, fontSize: 11, fontWeight: 700, letterSpacing: 1.5, fontFamily: F1, textTransform: "uppercase" };
   const handleSubmit = (e) => {
@@ -895,12 +1095,13 @@ function SupportSection({ addToast }) {
           <h3 style={{ fontFamily: F2, fontSize: 16, fontWeight: 800, color: T, margin: "0 0 8px" }}>Thesis Evaluation</h3>
           <p style={{ fontFamily: F1, fontSize: 13, color: TD, lineHeight: 1.6, margin: "0 0 20px", maxWidth: 440, marginLeft: "auto", marginRight: "auto" }}>Help us improve Easy Express! As beta testers, your structured feedback directly contributes to our thesis research and defense documentation.</p>
           <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-            <a href="https://forms.gle/YOUR_GOOGLE_FORM_ID_HERE" target="_blank" rel="noopener noreferrer" className="ee-btn-glow" style={{ display: "inline-block", padding: "12px 28px", background: `linear-gradient(135deg,${PU},${A})`, border: "none", borderRadius: 10, color: BG, fontFamily: F1, fontWeight: 800, fontSize: 13, cursor: "pointer", letterSpacing: 1, textDecoration: "none" }}>📝 TAKE THE SURVEY</a>
+            <a href="https://forms.gle/YOUR_GOOGLE_FORM_ID_HERE" target="_blank" rel="noopener noreferrer" className="ee-btn-glow" style={{ display: "inline-block", padding: "12px 28px", background: `linear-gradient(135deg,${PU},${A})`, border: "none", borderRadius: 10, color: BG, fontFamily: F1, fontWeight: 800, fontSize: 13, cursor: "pointer", letterSpacing: 1, textDecoration: "none" }} onClick={e => { e.preventDefault(); setShowSurvey(true); }}>📝 TAKE THE SURVEY</a>
             <a href="mailto:easyexpress.4r@gmail.com?subject=Beta%20Feedback" className="ee-btn-outline" style={{ display: "inline-block", padding: "12px 28px", background: "transparent", border: `1px solid ${BD}`, borderRadius: 10, color: TD, fontFamily: F1, fontWeight: 700, fontSize: 13, cursor: "pointer", letterSpacing: 0.5, textDecoration: "none" }}>✉ EMAIL FEEDBACK</a>
           </div>
           <p style={{ fontFamily: F1, fontSize: 10, color: TD, marginTop: 16, opacity: 0.7 }}>Your responses are anonymous and used solely for academic purposes.</p>
         </div>
       </div>
+      {showSurvey && <SurveyModal onClose={() => setShowSurvey(false)} addToast={addToast} />}
     </section>
   );
 }

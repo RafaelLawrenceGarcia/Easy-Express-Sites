@@ -314,14 +314,16 @@ function ServerStatus() {
     let cancelled = false;
     async function check() {
       try {
-        // Use GetTitlePublicConfiguration — requires NO login, NO player ID,
-        // so multiple visitors never conflict with each other on PlayFab.
-        const res = await fetch(`${PLAYFAB_BASE}/Client/GetTitlePublicConfiguration`, {
+        // Use a random ID per check + CreateAccount:false — never creates a real
+        // player, so two visitors can never clash on the same account.
+        const pingId = "Ping_" + Math.random().toString(36).slice(2);
+        const res = await fetch(`${PLAYFAB_BASE}/Client/LoginWithCustomID`, {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ TitleId: PLAYFAB_TITLE_ID })
+          body: JSON.stringify({ TitleId: PLAYFAB_TITLE_ID, CustomId: pingId, CreateAccount: false })
         });
         const json = await res.json();
-        if (!cancelled) setStatus(json.code === 200 || json.errorCode ? "online" : "offline");
+        // Any valid PlayFab JSON response (200 or 400/error) means the server is up
+        if (!cancelled) setStatus(json.code || json.errorCode ? "online" : "offline");
       } catch {
         if (!cancelled) setStatus("offline");
       }

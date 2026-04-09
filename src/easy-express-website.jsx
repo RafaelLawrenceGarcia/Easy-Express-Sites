@@ -531,9 +531,18 @@ function Scenarios() {
 }
 
 function GallerySection() {
-  const [playingVideo, setPlayingVideo] = useState(null);
+  const [lightbox, setLightbox] = useState(null); // the clicked item
   const modalVideoRef = useRef(null);
-  const closeModal = () => setPlayingVideo(null);
+
+  // Close on Escape
+  useEffect(() => {
+    if (!lightbox) return;
+    const onKey = (e) => { if (e.key === "Escape") setLightbox(null); };
+    window.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    return () => { window.removeEventListener("keydown", onKey); document.body.style.overflow = ""; };
+  }, [lightbox]);
+
   return (
     <section id="gallery" style={{ padding: "100px clamp(1rem,4vw,3rem)", maxWidth: 1200, margin: "0 auto" }}>
       <div className="ee-reveal" style={{ textAlign: "center", marginBottom: 64 }}>
@@ -541,26 +550,42 @@ function GallerySection() {
         <h2 style={{ fontFamily: F2, fontSize: "clamp(1.8rem,4vw,2.5rem)", fontWeight: 800, color: T, margin: "12px 0 16px" }}>Gallery</h2>
         <p style={{ color: TD, maxWidth: 520, margin: "0 auto", lineHeight: 1.7, fontFamily: F1, fontSize: 15 }}>Screenshots and footage from the Easy Express beta. See the shop, the builds, and the chaos.</p>
       </div>
+
       <div className="ee-grid-4" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 20 }}>
         {GALLERY_ITEMS.map((item, i) => (
-          <div key={i} className="ee-reveal ee-stagger ee-gallery-hover" style={{ "--stagger": i, background: CARD, border: `1px solid ${BD}`, borderRadius: 14, overflow: "hidden" }}>
-            <div
-              className="ee-gallery-thumb"
-              onClick={() => { if (item.type === "video") setPlayingVideo(item.src); }}
-              style={{ height: 180, background: `linear-gradient(135deg, ${BG}, ${CARD2})`, borderBottom: `1px solid ${BD}`, position: "relative", overflow: "hidden", cursor: item.type === "video" ? "pointer" : "default" }}
-            >
+          <div
+            key={i}
+            className="ee-reveal ee-stagger"
+            style={{
+              "--stagger": i, background: CARD, border: `1px solid ${BD}`,
+              borderRadius: 14, overflow: "hidden", cursor: "pointer",
+              transition: "transform 0.35s cubic-bezier(0.16,1,0.3,1), border-color 0.35s, box-shadow 0.35s",
+            }}
+            onClick={() => setLightbox(item)}
+            onMouseEnter={e => {
+              e.currentTarget.style.transform = "scale(1.04)";
+              e.currentTarget.style.borderColor = `${WN}60`;
+              e.currentTarget.style.boxShadow = `0 20px 60px ${BG}cc, 0 0 30px ${WN}18`;
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.transform = "scale(1)";
+              e.currentTarget.style.borderColor = BD;
+              e.currentTarget.style.boxShadow = "none";
+            }}
+          >
+            <div className="ee-gallery-thumb" style={{ height: 180, position: "relative", overflow: "hidden" }}>
               {item.type === "video" ? (
                 <video src={item.src} style={{ width: "100%", height: "100%", objectFit: "cover" }} muted playsInline />
               ) : (
-                <img src={item.src} alt={item.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                <img src={item.src} alt={item.title} style={{ width: "100%", height: "100%", objectFit: "cover", transition: "transform 0.5s cubic-bezier(0.16,1,0.3,1)" }} />
               )}
-              {item.type === "video" && (
-                <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", background: "rgba(0,0,0,0.4)" }}>
-                  <div style={{ width: 64, height: 64, borderRadius: "50%", background: `${A}cc`, display: "grid", placeItems: "center" }}>
-                    <span style={{ fontSize: 28, color: BG, marginLeft: 4 }}>▶</span>
-                  </div>
+              <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.28)", display: "grid", placeItems: "center" }}>
+                <div style={{ width: 46, height: 46, borderRadius: "50%", background: "rgba(0,0,0,0.55)", border: `2px solid ${item.type === "video" ? A : WN}`, display: "grid", placeItems: "center" }}>
+                  <span style={{ color: item.type === "video" ? A : WN, fontSize: 18, marginLeft: item.type === "video" ? 3 : 0 }}>
+                    {item.type === "video" ? "▶" : "⤢"}
+                  </span>
                 </div>
-              )}
+              </div>
             </div>
             <div style={{ padding: "20px 20px 24px" }}>
               <h3 style={{ fontFamily: F2, fontSize: 14, fontWeight: 700, color: T, margin: "0 0 6px" }}>{item.title}</h3>
@@ -569,12 +594,49 @@ function GallerySection() {
           </div>
         ))}
       </div>
-      {playingVideo && (
-        <div onClick={closeModal} style={{ position: "fixed", inset: 0, zIndex: 300, background: "rgba(0,0,0,0.92)", display: "grid", placeItems: "center", cursor: "pointer", animation: "fadeIn 0.3s ease-out" }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ width: "90%", maxWidth: 900, position: "relative" }}>
-            <button onClick={closeModal} style={{ position: "absolute", top: -44, right: 0, background: "none", border: "none", color: T, fontSize: 28, cursor: "pointer", fontFamily: F1, lineHeight: 1 }}>✕</button>
-            <video ref={modalVideoRef} key={playingVideo} src={playingVideo} controls onLoadedMetadata={() => { if (modalVideoRef.current) { modalVideoRef.current.muted = false; modalVideoRef.current.volume = 1; } }} style={{ width: "100%", borderRadius: 12, boxShadow: `0 0 60px ${A}20`, display: "block" }} />
+
+      {/* ── Fullscreen Lightbox ── */}
+      {lightbox && (
+        <div
+          onClick={() => setLightbox(null)}
+          style={{ position: "fixed", inset: 0, zIndex: 400, background: "rgba(0,0,0,0.96)", backdropFilter: "blur(14px)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", animation: "fadeIn 0.2s ease-out" }}
+        >
+          {/* X button */}
+          <button
+            onClick={() => setLightbox(null)}
+            style={{ position: "fixed", top: 20, right: 24, width: 44, height: 44, borderRadius: "50%", background: "rgba(255,255,255,0.1)", border: `1px solid rgba(255,255,255,0.2)`, color: T, fontSize: 20, cursor: "pointer", display: "grid", placeItems: "center", zIndex: 401, transition: "background 0.2s" }}
+            onMouseEnter={e => e.currentTarget.style.background = A2 + "99"}
+            onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.1)"}
+          >✕</button>
+
+          {/* Title + desc */}
+          <div style={{ textAlign: "center", marginBottom: 16, zIndex: 401 }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontFamily: F2, fontSize: 16, fontWeight: 700, color: T, marginBottom: 4 }}>{lightbox.title}</div>
+            <div style={{ fontFamily: F1, fontSize: 13, color: TD }}>{lightbox.desc}</div>
           </div>
+
+          {/* Media */}
+          <div onClick={e => e.stopPropagation()} style={{ width: "95vw", maxWidth: 1100, maxHeight: "82vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            {lightbox.type === "video" ? (
+              <video
+                ref={modalVideoRef}
+                key={lightbox.src}
+                src={lightbox.src}
+                controls
+                autoPlay
+                onLoadedMetadata={() => { if (modalVideoRef.current) { modalVideoRef.current.muted = false; modalVideoRef.current.volume = 1; } }}
+                style={{ width: "100%", maxHeight: "82vh", borderRadius: 12, boxShadow: `0 0 80px ${A}25`, display: "block" }}
+              />
+            ) : (
+              <img
+                src={lightbox.src}
+                alt={lightbox.title}
+                style={{ maxWidth: "100%", maxHeight: "82vh", borderRadius: 12, boxShadow: `0 0 80px ${WN}20`, display: "block", objectFit: "contain" }}
+              />
+            )}
+          </div>
+
+          <div style={{ marginTop: 14, fontFamily: F1, fontSize: 11, color: TD, opacity: 0.6 }}>Press ESC or click outside to close</div>
         </div>
       )}
     </section>

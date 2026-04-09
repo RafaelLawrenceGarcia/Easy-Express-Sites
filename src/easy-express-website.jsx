@@ -423,7 +423,7 @@ function Nav({ onAuth, activeSection, isAdmin, onAdminToggle, showAdmin, current
 /* ═══════════════════════════════════════════
    SECTIONS
    ═══════════════════════════════════════════ */
-function Hero({ onAuth, ownsGame, onBuyClick }) {
+function Hero({ onAuth, ownsGame, onBuyClick, currentUser }) {
   const handleDownload = (isFull) => {
     trackDownload();
     const url = isFull
@@ -495,13 +495,15 @@ function Hero({ onAuth, ownsGame, onBuyClick }) {
                 ⬇ DOWNLOAD DEMO <span style={{ fontSize: 10, opacity: 0.7 }}>Free · Windows</span>
               </button>
               <button onClick={onBuyClick} className="ee-btn-glow" style={{ background: `linear-gradient(135deg,${PU},${A2})`, border: "none", color: T, padding: "15px 28px", borderRadius: 10, fontFamily: F1, fontWeight: 800, fontSize: 14, cursor: "pointer", letterSpacing: 1, boxShadow: `0 0 28px ${PU}28`, display: "flex", alignItems: "center", gap: 8 }}>
-                🛒 BUY FULL GAME <span style={{ fontSize: 13, fontWeight: 700, color: A }}>₱299</span>
+                🛒 BUY FULL GAME <span style={{ fontSize: 13, fontWeight: 700, color: A }}>₱1</span>
               </button>
             </>
           )}
-          <button onClick={() => onAuth("signup")} className="ee-btn-outline" style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${BD}`, color: T, padding: "15px 28px", borderRadius: 10, fontFamily: F1, fontWeight: 700, fontSize: 14, cursor: "pointer", letterSpacing: 1, backdropFilter: "blur(8px)" }}>
-            CREATE ACCOUNT
-          </button>
+          {!currentUser && (
+            <button onClick={() => onAuth("signup")} className="ee-btn-outline" style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${BD}`, color: T, padding: "15px 28px", borderRadius: 10, fontFamily: F1, fontWeight: 700, fontSize: 14, cursor: "pointer", letterSpacing: 1, backdropFilter: "blur(8px)" }}>
+              CREATE ACCOUNT
+            </button>
+          )}
         </div>
 
         {!ownsGame && (
@@ -513,7 +515,7 @@ function Hero({ onAuth, ownsGame, onBuyClick }) {
 
         {/* Stats row */}
         <div style={{ marginTop: 40, display: "flex", gap: 32, flexWrap: "wrap", animation: "fadeSlideUp 0.8s ease-out 0.58s both" }}>
-          {[{ icon: "🖥", val: "Windows 10/11" }, { icon: "🎓", val: "CS Thesis Project" }, { icon: "💰", val: ownsGame ? "Full Version" : "Demo Free / Full ₱299" }].map((s, i) => (
+          {[{ icon: "🖥", val: "Windows 10/11" }, { icon: "🎓", val: "CS Thesis Project" }, { icon: "💰", val: ownsGame ? "Full Version" : "Demo Free / Full ₱1" }].map((s, i) => (
             <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ fontSize: 18 }}>{s.icon}</span>
               <span style={{ fontFamily: F1, fontSize: 13, fontWeight: 600, color: TD }}>{s.val}</span>
@@ -2750,6 +2752,7 @@ if (paymentStatus === "cancelled") {
         <Hero
           onAuth={setAuthModal}
           ownsGame={ownsGame}
+          currentUser={currentUser}
           onBuyClick={() => {
             if (!currentUser) {
               addToast({ type: "info", title: "Login Required", message: "Please log in or create an account before purchasing.", duration: 4000 });

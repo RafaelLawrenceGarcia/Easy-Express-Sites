@@ -495,7 +495,7 @@ function Hero({ onAuth, ownsGame, onBuyClick, currentUser }) {
                 ⬇ DOWNLOAD DEMO <span style={{ fontSize: 10, opacity: 0.7 }}>Free · Windows</span>
               </button>
               <button onClick={onBuyClick} className="ee-btn-glow" style={{ background: `linear-gradient(135deg,${PU},${A2})`, border: "none", color: T, padding: "15px 28px", borderRadius: 10, fontFamily: F1, fontWeight: 800, fontSize: 14, cursor: "pointer", letterSpacing: 1, boxShadow: `0 0 28px ${PU}28`, display: "flex", alignItems: "center", gap: 8 }}>
-                🛒 BUY FULL GAME <span style={{ fontSize: 13, fontWeight: 700, color: A }}>₱1</span>
+                🛒 BUY FULL GAME <span style={{ fontSize: 13, fontWeight: 700, color: A }}>₱299</span>
               </button>
             </>
           )}
@@ -515,7 +515,7 @@ function Hero({ onAuth, ownsGame, onBuyClick, currentUser }) {
 
         {/* Stats row */}
         <div style={{ marginTop: 40, display: "flex", gap: 32, flexWrap: "wrap", animation: "fadeSlideUp 0.8s ease-out 0.58s both" }}>
-          {[{ icon: "🖥", val: "Windows 10/11" }, { icon: "🎓", val: "CS Thesis Project" }, { icon: "💰", val: ownsGame ? "Full Version" : "Demo Free / Full ₱1" }].map((s, i) => (
+          {[{ icon: "🖥", val: "Windows 10/11" }, { icon: "🎓", val: "CS Thesis Project" }, { icon: "💰", val: ownsGame ? "Full Version" : "Demo Free / Full ₱299" }].map((s, i) => (
             <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ fontSize: 18 }}>{s.icon}</span>
               <span style={{ fontFamily: F1, fontSize: 13, fontWeight: 600, color: TD }}>{s.val}</span>
@@ -1794,7 +1794,7 @@ function CheckoutModal({ onClose, onSuccess, addToast, sessionTicket, playFabId 
   const [method] = useState("qrph");  // QRPH only — GCash and Card removed
   const [error, setError] = useState("");
 
-  const PRICE = "299.00";
+  const PRICE = "₱299.00";
   const GAME_TITLE = "Easy Express — Full Game";
 
   const inputStyle = {

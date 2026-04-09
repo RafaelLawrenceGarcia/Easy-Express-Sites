@@ -820,6 +820,7 @@ function PublicLeaderboards({ sessionTicket: propTicket, currentUser }) {
   const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState(null);
   const [myRank, setMyRank] = useState(null);   // { Position, StatValue, DisplayName }
+  const [bannedIds, setBannedIds] = useState([]); // ← ADD THIS
   const [sessionTicket, setSessionTicket] = useState(
     () => propTicket || sessionStorage.getItem("ee_lb_ticket") || null
   );

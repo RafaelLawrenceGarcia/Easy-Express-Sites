@@ -879,7 +879,25 @@ function PublicLeaderboards({ sessionTicket: propTicket, currentUser }) {
         const lbJson = await lbRes.json();
         if (cancelled) return;
         if (lbJson.code !== 200) { setError(`Data Error: ${lbJson.errorMessage}`); return; }
-        const rows = lbJson.data.Leaderboard || [];
+        // REPLACE WITH:
+        let rows = lbJson.data.Leaderboard || [];
+
+        // ── fetch banned list and filter ──
+        try {
+          const tdRes = await fetch(`https://${PLAYFAB_TITLE_ID}.playfabapi.com/Client/GetTitleData`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-Authorization": sessionTicket },
+            body: JSON.stringify({ Keys: ["BannedPlayers"] })
+          });
+          const tdJson = await tdRes.json();
+          if (tdJson.code === 200 && tdJson.data?.Data?.BannedPlayers) {
+            const banned = JSON.parse(tdJson.data.Data.BannedPlayers);
+            setBannedIds(banned);
+            rows = rows.filter(p => !banned.includes(p.PlayFabId));
+          }
+        } catch {}
+        // ──────────────────────────────────
+
         setLeaderboard(rows);
         setHasMore(rows.length === PAGE_SIZE);
 
@@ -929,7 +947,7 @@ function PublicLeaderboards({ sessionTicket: propTicket, currentUser }) {
       });
       const json = await res.json();
       if (json.code === 200) {
-        const newRows = json.data.Leaderboard || [];
+        const newRows = (json.data.Leaderboard || []).filter(p => !bannedIds.includes(p.PlayFabId));
         setLeaderboard(prev => [...prev, ...newRows]);
         setHasMore(newRows.length === PAGE_SIZE);
       }
@@ -2215,7 +2233,7 @@ function AdminDashboard({ addToast, onClose, adminKey, setAdminKey, authed, setA
     }
   }, []);
   // eslint-disable-line react-hooks/exhaustive-deps
-  
+  const [bannedIds, setBannedIds] = useState([]);
   const [activeTab, setActiveTab] = useState("players");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResult, setSearchResult] = useState(null);
@@ -2277,10 +2295,24 @@ function AdminDashboard({ addToast, onClose, adminKey, setAdminKey, authed, setA
       addToast({ type: "info", title: "Player Banned", message: `${searchResult.id} — ${durationLabel}` });
     } catch (e) { setBanMsg("❌ " + e.message); }
   };
-  const unbanPlayer = async () => { if (!searchResult) return; setBanMsg("");
-    try { await pfAdmin("RevokeAllBansForUser", { PlayFabId: searchResult.id }, adminKey); setBanMsg("✅ All bans revoked.");
-      setSearchResult(prev => ({ ...prev, banned: false })); addToast({ type: "success", title: "Player Unbanned", message: searchResult.id + " has been unbanned." });
-    } catch (e) { setBanMsg("❌ " + e.message); } };
+  const unbanPlayer = async () => {
+    if (!searchResult) return; setBanMsg("");
+    try {
+      await pfAdmin("RevokeAllBansForUser", { PlayFabId: searchResult.id }, adminKey);
+
+      // ── NEW: remove from BannedPlayers list ──
+      try {
+        const td = await pfAdmin("GetTitleData", { Keys: ["BannedPlayers"] }, adminKey);
+        let bannedList = td.Data?.BannedPlayers ? JSON.parse(td.Data.BannedPlayers) : [];
+        bannedList = bannedList.filter(id => id !== searchResult.id);
+        await pfAdmin("SetTitleData", { Key: "BannedPlayers", Value: JSON.stringify(bannedList) }, adminKey);
+      } catch {}
+      // ─────────────────────────────────────────
+      setBanMsg("✅ All bans revoked.");
+      setSearchResult(prev => ({ ...prev, banned: false }));
+      addToast({ type: "success", title: "Player Unbanned", message: searchResult.id + " has been unbanned." });
+    } catch (e) { setBanMsg("❌ " + e.message); }
+  };
   const addNewsItem = async () => { if (!newsTitle.trim() || !newsBody.trim()) { setNewsMsg("Fill in title and body."); return; } setNewsMsg("");
     const newItem = { id: Date.now(), type: newsType, date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }), title: newsTitle, desc: newsBody, color: newsType === "UPDATE" ? OK : newsType === "EVENT" ? WN : newsType === "PATCH" ? A : A2 };
     const updated = [newItem, ...displayNews];

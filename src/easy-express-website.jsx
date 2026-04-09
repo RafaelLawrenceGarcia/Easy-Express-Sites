@@ -2202,6 +2202,9 @@ function AuthModal({ mode, setMode, onClose, addToast, onLoginSuccess, liveNews 
 /* ═══════════════════════════════════════════════════════════
    ADMIN DASHBOARD
    ═══════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════
+   ADMIN DASHBOARD
+   ═══════════════════════════════════════════════════════════ */
 function AdminDashboard({ addToast, onClose, adminKey, setAdminKey, authed, setAuthed, liveNews, onNewsUpdated }) {
   // Admin bypass: AdminDashboard only ever renders when currentUser === "masteradmin",
   // so we can unconditionally mark as authed and ensure the key is populated.
@@ -2211,7 +2214,8 @@ function AdminDashboard({ addToast, onClose, adminKey, setAdminKey, authed, setA
       const envKey = import.meta.env.VITE_PLAYFAB_SECRET_KEY || "";
       if (envKey) setAdminKey(envKey);
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
+  // eslint-disable-line react-hooks/exhaustive-deps
   const [activeTab, setActiveTab] = useState("players");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResult, setSearchResult] = useState(null);
@@ -2237,7 +2241,7 @@ function AdminDashboard({ addToast, onClose, adminKey, setAdminKey, authed, setA
   const inputStyle = { width: "100%", padding: "12px 14px", background: BG, border: `1px solid ${BD}`, borderRadius: 8, color: T, fontSize: 14, fontFamily: F1, outline: "none", transition: "border-color 0.3s", boxSizing: "border-box" };
   const labelStyle = { display: "block", marginBottom: 6, color: TD, fontSize: 11, fontWeight: 700, letterSpacing: 1.5, fontFamily: F1, textTransform: "uppercase" };
   const BAN_DURATIONS = [{ value: "24", label: "24 Hours" },{ value: "168", label: "7 Days" },{ value: "720", label: "30 Days" },{ value: "permanent", label: "Permanent" }];
-
+  
   if (!authed) {
     return (
       <div style={{ position: "fixed", inset: 0, zIndex: 200, background: `${BG}dd`, backdropFilter: "blur(24px)", display: "grid", placeItems: "center", padding: 20, animation: "fadeIn 0.3s ease-out" }} onClick={onClose}>
@@ -2257,42 +2261,44 @@ function AdminDashboard({ addToast, onClose, adminKey, setAdminKey, authed, setA
 
   const searchPlayer = async () => { setSearchErr(""); setSearchResult(null); setEditMsg(""); setBanMsg(""); setPlayerStats(null);
     try { const res = await pfAdmin("GetUserAccountInfo", { Email: searchQuery.includes("@") ? searchQuery : undefined, PlayFabId: !searchQuery.includes("@") ? searchQuery : undefined }, adminKey);
-    const info = res.UserInfo; const dataRes = await pfServer("GetUserData", { PlayFabId: info.PlayFabId }, adminKey); const userData = {};
-    Object.entries(dataRes.Data || {}).forEach(([k, v]) => { userData[k] = v.Value; });
-    try { const statsRes = await pfServer("GetPlayerStatistics", { PlayFabId: info.PlayFabId, StatisticNames: ["Gold"] }, adminKey); const statsMap = {};
-    (statsRes.Statistics || []).forEach(s => { statsMap[s.StatisticName] = s.Value; }); setPlayerStats(statsMap); } catch (e) { setPlayerStats(null);
-    } setSearchResult({ id: info.PlayFabId, email: info.PrivateInfo?.Email || "N/A", displayName: info.TitleInfo?.DisplayName || "N/A", created: info.TitleInfo?.Created || "", banned: info.TitleInfo?.isBanned || false });
-    setEditData(userData); addToast({ type: "success", title: "Player Found", message: `Loaded data for ${info.PlayFabId}` }); } catch (e) { setSearchErr(e.message); } };
+      const info = res.UserInfo; const dataRes = await pfServer("GetUserData", { PlayFabId: info.PlayFabId }, adminKey); const userData = {};
+      Object.entries(dataRes.Data || {}).forEach(([k, v]) => { userData[k] = v.Value; });
+      try { const statsRes = await pfServer("GetPlayerStatistics", { PlayFabId: info.PlayFabId, StatisticNames: ["Gold"] }, adminKey); const statsMap = {};
+        (statsRes.Statistics || []).forEach(s => { statsMap[s.StatisticName] = s.Value; }); setPlayerStats(statsMap); } catch (e) { setPlayerStats(null);
+      } setSearchResult({ id: info.PlayFabId, email: info.PrivateInfo?.Email || "N/A", displayName: info.TitleInfo?.DisplayName || "N/A", created: info.TitleInfo?.Created || "", banned: info.TitleInfo?.isBanned || false });
+      setEditData(userData); addToast({ type: "success", title: "Player Found", message: `Loaded data for ${info.PlayFabId}` }); } catch (e) { setSearchErr(e.message); } };
   const updatePlayerData = async () => { if (!searchResult) return; setEditMsg("");
     try { await pfAdmin("UpdateUserData", { PlayFabId: searchResult.id, Data: editData }, adminKey); setEditMsg("✅ Player data updated!");
-    addToast({ type: "success", title: "Data Saved", message: `Updated data for ${searchResult.id}` }); } catch (e) { setEditMsg("❌ " + e.message); } };
+      addToast({ type: "success", title: "Data Saved", message: `Updated data for ${searchResult.id}` }); } catch (e) { setEditMsg("❌ " + e.message);
+    } };
   const banPlayer = async () => { if (!searchResult) return; setBanMsg("");
     try { const banPayload = { PlayFabId: searchResult.id, Reason: banReason || "Admin action" };
-    if (banDuration !== "permanent") banPayload.DurationInHours = parseInt(banDuration, 10); await pfAdmin("BanUsers", { Bans: [banPayload] }, adminKey);
-    const durationLabel = BAN_DURATIONS.find(d => d.value === banDuration)?.label || banDuration; setBanMsg(`✅ Player banned (${durationLabel}).`);
-    setSearchResult(prev => ({ ...prev, banned: true })); addToast({ type: "info", title: "Player Banned", message: `${searchResult.id} — ${durationLabel}` });
+      if (banDuration !== "permanent") banPayload.DurationInHours = parseInt(banDuration, 10); await pfAdmin("BanUsers", { Bans: [banPayload] }, adminKey);
+      const durationLabel = BAN_DURATIONS.find(d => d.value === banDuration)?.label || banDuration; setBanMsg(`✅ Player banned (${durationLabel}).`);
+      setSearchResult(prev => ({ ...prev, banned: true })); addToast({ type: "info", title: "Player Banned", message: `${searchResult.id} — ${durationLabel}` });
     } catch (e) { setBanMsg("❌ " + e.message); } };
   const unbanPlayer = async () => { if (!searchResult) return; setBanMsg("");
     try { await pfAdmin("RevokeAllBansForUser", { PlayFabId: searchResult.id }, adminKey); setBanMsg("✅ All bans revoked.");
-    setSearchResult(prev => ({ ...prev, banned: false })); addToast({ type: "success", title: "Player Unbanned", message: searchResult.id + " has been unbanned." });
+      setSearchResult(prev => ({ ...prev, banned: false })); addToast({ type: "success", title: "Player Unbanned", message: searchResult.id + " has been unbanned." });
     } catch (e) { setBanMsg("❌ " + e.message); } };
   const addNewsItem = async () => { if (!newsTitle.trim() || !newsBody.trim()) { setNewsMsg("Fill in title and body."); return; } setNewsMsg("");
     const newItem = { id: Date.now(), type: newsType, date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }), title: newsTitle, desc: newsBody, color: newsType === "UPDATE" ? OK : newsType === "EVENT" ? WN : newsType === "PATCH" ? A : A2 };
     const updated = [newItem, ...displayNews];
     // Optimistic update — reflect on site immediately, then persist to PlayFab
-    onNewsUpdated(updated); setNewsTitle(""); setNewsBody(""); setNewsMsg("✅ News published!");
+    onNewsUpdated(updated);
+    setNewsTitle(""); setNewsBody(""); setNewsMsg("✅ News published!");
     addToast({ type: "success", title: "News Published", message: newsTitle });
-    try { await pfAdmin("SetTitleData", { Key: "GameNews", Value: JSON.stringify(updated) }, adminKey); }
-    catch (e) { setNewsMsg("⚠ Shown locally but PlayFab save failed: " + e.message); } };
+    try { await pfAdmin("SetTitleData", { Key: "GameNews", Value: JSON.stringify(updated) }, adminKey);
+    } catch (e) { setNewsMsg("⚠ Shown locally but PlayFab save failed: " + e.message); } };
   const deleteNewsItem = async (id) => { const updated = displayNews.filter(n => n.id !== id);
     // Optimistic update — remove immediately, then persist to PlayFab
     onNewsUpdated(updated);
     try { await pfAdmin("SetTitleData", { Key: "GameNews", Value: JSON.stringify(updated) }, adminKey);
-    addToast({ type: "info", title: "News Deleted", message: "Item removed." }); }
-    catch (e) { setNewsMsg("⚠ Removed locally but PlayFab save failed: " + e.message); } };
+      addToast({ type: "info", title: "News Deleted", message: "Item removed." });
+    } catch (e) { setNewsMsg("⚠ Removed locally but PlayFab save failed: " + e.message); } };
   const fetchLeaderboard = async () => { if (!lbStat) { setLbErr("Please enter a statistic name."); return; } setLbErr(""); setLbData([]);
     try { const res = await pfServer("GetLeaderboard", { StatisticName: lbStat, StartPosition: 0, MaxResultsCount: 100 }, adminKey); setLbData(res.Leaderboard || []);
-    addToast({ type: "success", title: "Leaderboard Loaded", message: `Fetched top players for ${lbStat}` }); } catch (e) { setLbErr(e.message); } };
+      addToast({ type: "success", title: "Leaderboard Loaded", message: `Fetched top players for ${lbStat}` }); } catch (e) { setLbErr(e.message); } };
   const fetchLogs = async () => { setLogEntries([{ time: new Date().toLocaleString(), event: "System", msg: "PlayFab event logging requires Insights. Configure PlayStream rules in your dashboard." }, { time: "", event: "Tip", msg: "Use Admin/GetUserAccountInfo or Admin/GetPlayerStatistics for per-player auditing." }]);
     addToast({ type: "info", title: "Logs", message: "Event system info loaded." }); };
   const loadRevenue = async () => {
@@ -2324,12 +2330,15 @@ function AdminDashboard({ addToast, onClose, adminKey, setAdminKey, authed, setA
     }
   };
 
+  const [showKeyBanner, setShowKeyBanner] = useState(!adminKey);
   const tabs = [{ id: "players", label: "👥 Players" },{ id: "news", label: "📰 News Editor" },{ id: "leaderboard", label: "🏆 Leaderboards" },{ id: "revenue", label: "💵 Revenue" },{ id: "logs", label: "📋 Event Logs" }];
-
+  
   // Auto-load revenue data when the revenue tab is opened
   useEffect(() => {
     if (activeTab === "revenue" && !revenueLoaded) loadRevenue();
-  }, [activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+  // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 200, background: `${BG}f5`, backdropFilter: "blur(8px)", overflowY: "auto", animation: "fadeIn 0.3s ease-out" }}>
       <div style={{ position: "sticky", top: 0, zIndex: 10, background: `${CARD}f0`, backdropFilter: "blur(16px)", borderBottom: `1px solid ${BD}`, padding: "0 clamp(1rem,4vw,3rem)", height: 56, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -2339,6 +2348,28 @@ function AdminDashboard({ addToast, onClose, adminKey, setAdminKey, authed, setA
         </div>
         <button onClick={onClose} style={{ background: `${A2}15`, border: `1px solid ${A2}30`, color: A2, padding: "6px 16px", borderRadius: 6, fontFamily: F1, fontWeight: 700, fontSize: 12, cursor: "pointer", letterSpacing: 1 }}>✕ CLOSE</button>
       </div>
+
+      {/* ── Secret Key Banner (shown when key is missing) ── */}
+      {!adminKey && (
+        <div style={{ background: `${A2}12`, borderBottom: `1px solid ${A2}30`, padding: "12px clamp(1rem,4vw,3rem)", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <span style={{ fontFamily: F1, fontSize: 13, color: A2, fontWeight: 700, flexShrink: 0 }}>⚠ Secret Key Required:</span>
+          <input
+            type="password"
+            placeholder="Enter PlayFab Secret Key to enable Admin API calls"
+            style={{ flex: 1, minWidth: 260, padding: "8px 12px", background: BG, border: `1px solid ${A2}40`, borderRadius: 8, color: T, fontSize: 13, fontFamily: F1, outline: "none" }}
+            onChange={e => setAdminKey(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter" && e.target.value.length > 10) { setAdminKey(e.target.value); addToast({ type: "success", title: "Key Set", message: "Secret key saved for this session." }); } }}
+          />
+          <button
+            onClick={e => {
+              const input = e.currentTarget.previousSibling;
+              if (input.value.length > 10) { setAdminKey(input.value); addToast({ type: "success", title: "Key Set", message: "Secret key saved for this session." }); }
+            }}
+            style={{ padding: "8px 18px", background: `linear-gradient(135deg,${A2},${WN})`, border: "none", borderRadius: 8, color: BG, fontFamily: F1, fontWeight: 700, fontSize: 12, cursor: "pointer" }}
+          >APPLY</button>
+        </div>
+      )}
+
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "32px clamp(1rem,4vw,3rem)" }}>
         <div className="ee-admin-tabs" style={{ display: "flex", gap: 6, marginBottom: 28, flexWrap: "wrap" }}>
           {tabs.map(t => (<button key={t.id} className="ee-tab-btn" onClick={() => setActiveTab(t.id)} style={{ padding: "10px 20px", borderRadius: 8, fontFamily: F1, fontWeight: 700, fontSize: 12, cursor: "pointer", letterSpacing: 1, transition: "all 0.3s", background: activeTab === t.id ? `${A}15` : CARD, border: `1px solid ${activeTab === t.id ? A + "40" : BD}`, color: activeTab === t.id ? A : TD }}>{t.label}</button>))}

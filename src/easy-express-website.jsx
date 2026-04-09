@@ -2206,16 +2206,16 @@ function AuthModal({ mode, setMode, onClose, addToast, onLoginSuccess, liveNews 
    ADMIN DASHBOARD
    ═══════════════════════════════════════════════════════════ */
 function AdminDashboard({ addToast, onClose, adminKey, setAdminKey, authed, setAuthed, liveNews, onNewsUpdated }) {
-  // Admin bypass: AdminDashboard only ever renders when currentUser === "masteradmin",
-  // so we can unconditionally mark as authed and ensure the key is populated.
   useEffect(() => {
-    if (!authed) setAuthed(true);
+    setAuthed(true); // Automatically authorize
     if (!adminKey) {
-      const envKey = import.meta.env.VITE_PLAYFAB_SECRET_KEY || "";
-      if (envKey) setAdminKey(envKey);
+      // Hardcode your PlayFab Secret Key here to bypass all prompts
+      const envKey = import.meta.env.VITE_PLAYFAB_SECRET_KEY || "YOUR_SECRET_KEY_HERE";
+      setAdminKey(envKey);
     }
   }, []);
   // eslint-disable-line react-hooks/exhaustive-deps
+  
   const [activeTab, setActiveTab] = useState("players");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResult, setSearchResult] = useState(null);
@@ -2241,23 +2241,6 @@ function AdminDashboard({ addToast, onClose, adminKey, setAdminKey, authed, setA
   const inputStyle = { width: "100%", padding: "12px 14px", background: BG, border: `1px solid ${BD}`, borderRadius: 8, color: T, fontSize: 14, fontFamily: F1, outline: "none", transition: "border-color 0.3s", boxSizing: "border-box" };
   const labelStyle = { display: "block", marginBottom: 6, color: TD, fontSize: 11, fontWeight: 700, letterSpacing: 1.5, fontFamily: F1, textTransform: "uppercase" };
   const BAN_DURATIONS = [{ value: "24", label: "24 Hours" },{ value: "168", label: "7 Days" },{ value: "720", label: "30 Days" },{ value: "permanent", label: "Permanent" }];
-  
-  if (!authed) {
-    return (
-      <div style={{ position: "fixed", inset: 0, zIndex: 200, background: `${BG}dd`, backdropFilter: "blur(24px)", display: "grid", placeItems: "center", padding: 20, animation: "fadeIn 0.3s ease-out" }} onClick={onClose}>
-        <div style={{ background: CARD, border: `1px solid ${BD}`, borderRadius: 20, padding: "48px 40px", width: "100%", maxWidth: 440, animation: "modalSlideUp 0.4s cubic-bezier(0.16,1,0.3,1)", position: "relative" }} onClick={e => e.stopPropagation()}>
-          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg,${A2},${WN})` }} />
-          <button onClick={onClose} style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", color: TD, fontSize: 18, cursor: "pointer" }}>✕</button>
-          <div style={{ width: 56, height: 56, borderRadius: 14, background: `${A2}15`, border: `1px solid ${A2}30`, display: "grid", placeItems: "center", margin: "0 auto 20px", fontSize: 24 }}>⚙</div>
-          <h2 style={{ fontFamily: F2, fontSize: 20, fontWeight: 800, color: T, textAlign: "center", margin: "0 0 6px" }}>Admin Authentication</h2>
-          <p style={{ fontFamily: F1, fontSize: 12, color: TD, textAlign: "center", margin: "0 0 24px" }}>Enter your PlayFab Secret Key to access admin tools.</p>
-          <label style={labelStyle}>Secret Key</label>
-          <input type="password" style={inputStyle} value={adminKey} onChange={e => setAdminKey(e.target.value)} placeholder="Enter PlayFab Secret Key" onKeyDown={e => { if (e.key === "Enter" && adminKey.length > 10) setAuthed(true); }} />
-          <button onClick={() => { if (adminKey.length > 10) setAuthed(true); else addToast({ type: "error", title: "Invalid Key", message: "Secret key is too short." }); }} style={{ width: "100%", padding: 14, marginTop: 16, background: `linear-gradient(135deg,${A2},${WN})`, border: "none", borderRadius: 10, color: BG, fontFamily: F1, fontWeight: 800, fontSize: 14, cursor: "pointer", letterSpacing: 1 }}>AUTHENTICATE</button>
-        </div>
-      </div>
-    );
-  }
 
   const searchPlayer = async () => { setSearchErr(""); setSearchResult(null); setEditMsg(""); setBanMsg(""); setPlayerStats(null);
     try { const res = await pfAdmin("GetUserAccountInfo", { Email: searchQuery.includes("@") ? searchQuery : undefined, PlayFabId: !searchQuery.includes("@") ? searchQuery : undefined }, adminKey);
@@ -2284,14 +2267,12 @@ function AdminDashboard({ addToast, onClose, adminKey, setAdminKey, authed, setA
   const addNewsItem = async () => { if (!newsTitle.trim() || !newsBody.trim()) { setNewsMsg("Fill in title and body."); return; } setNewsMsg("");
     const newItem = { id: Date.now(), type: newsType, date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }), title: newsTitle, desc: newsBody, color: newsType === "UPDATE" ? OK : newsType === "EVENT" ? WN : newsType === "PATCH" ? A : A2 };
     const updated = [newItem, ...displayNews];
-    // Optimistic update — reflect on site immediately, then persist to PlayFab
     onNewsUpdated(updated);
     setNewsTitle(""); setNewsBody(""); setNewsMsg("✅ News published!");
     addToast({ type: "success", title: "News Published", message: newsTitle });
     try { await pfAdmin("SetTitleData", { Key: "GameNews", Value: JSON.stringify(updated) }, adminKey);
     } catch (e) { setNewsMsg("⚠ Shown locally but PlayFab save failed: " + e.message); } };
   const deleteNewsItem = async (id) => { const updated = displayNews.filter(n => n.id !== id);
-    // Optimistic update — remove immediately, then persist to PlayFab
     onNewsUpdated(updated);
     try { await pfAdmin("SetTitleData", { Key: "GameNews", Value: JSON.stringify(updated) }, adminKey);
       addToast({ type: "info", title: "News Deleted", message: "Item removed." });
@@ -2307,13 +2288,12 @@ function AdminDashboard({ addToast, onClose, adminKey, setAdminKey, authed, setA
       const td = await pfAdmin("GetTitleData", { Keys: ["GameRevenue"] }, adminKey);
       if (td.Data?.GameRevenue) {
         const parsed = JSON.parse(td.Data.GameRevenue);
-        const { donations: _d, ...rest } = parsed;   // drop old donations key
+        const { donations: _d, ...rest } = parsed; 
         setGameRevenue({ total: rest.total || "0", purchases: rest.purchases || "0", note: rest.note || "" });
       } else {
         setGameRevenue({ total: "0", purchases: "0", note: "" });
       }
     } catch (e) {
-      // PlayFab unreachable or key missing — still show editable fields
       setGameRevenue({ total: "0", purchases: "0", note: "" });
       setRevenueMsg("⚠ Could not load from PlayFab (" + e.message + "). Enter values manually and click Save.");
     }
@@ -2330,10 +2310,8 @@ function AdminDashboard({ addToast, onClose, adminKey, setAdminKey, authed, setA
     }
   };
 
-  const [showKeyBanner, setShowKeyBanner] = useState(!adminKey);
   const tabs = [{ id: "players", label: "👥 Players" },{ id: "news", label: "📰 News Editor" },{ id: "leaderboard", label: "🏆 Leaderboards" },{ id: "revenue", label: "💵 Revenue" },{ id: "logs", label: "📋 Event Logs" }];
   
-  // Auto-load revenue data when the revenue tab is opened
   useEffect(() => {
     if (activeTab === "revenue" && !revenueLoaded) loadRevenue();
   }, [activeTab]);
@@ -2348,27 +2326,6 @@ function AdminDashboard({ addToast, onClose, adminKey, setAdminKey, authed, setA
         </div>
         <button onClick={onClose} style={{ background: `${A2}15`, border: `1px solid ${A2}30`, color: A2, padding: "6px 16px", borderRadius: 6, fontFamily: F1, fontWeight: 700, fontSize: 12, cursor: "pointer", letterSpacing: 1 }}>✕ CLOSE</button>
       </div>
-
-      {/* ── Secret Key Banner (shown when key is missing) ── */}
-      {!adminKey && (
-        <div style={{ background: `${A2}12`, borderBottom: `1px solid ${A2}30`, padding: "12px clamp(1rem,4vw,3rem)", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <span style={{ fontFamily: F1, fontSize: 13, color: A2, fontWeight: 700, flexShrink: 0 }}>⚠ Secret Key Required:</span>
-          <input
-            type="password"
-            placeholder="Enter PlayFab Secret Key to enable Admin API calls"
-            style={{ flex: 1, minWidth: 260, padding: "8px 12px", background: BG, border: `1px solid ${A2}40`, borderRadius: 8, color: T, fontSize: 13, fontFamily: F1, outline: "none" }}
-            onChange={e => setAdminKey(e.target.value)}
-            onKeyDown={e => { if (e.key === "Enter" && e.target.value.length > 10) { setAdminKey(e.target.value); addToast({ type: "success", title: "Key Set", message: "Secret key saved for this session." }); } }}
-          />
-          <button
-            onClick={e => {
-              const input = e.currentTarget.previousSibling;
-              if (input.value.length > 10) { setAdminKey(input.value); addToast({ type: "success", title: "Key Set", message: "Secret key saved for this session." }); }
-            }}
-            style={{ padding: "8px 18px", background: `linear-gradient(135deg,${A2},${WN})`, border: "none", borderRadius: 8, color: BG, fontFamily: F1, fontWeight: 700, fontSize: 12, cursor: "pointer" }}
-          >APPLY</button>
-        </div>
-      )}
 
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "32px clamp(1rem,4vw,3rem)" }}>
         <div className="ee-admin-tabs" style={{ display: "flex", gap: 6, marginBottom: 28, flexWrap: "wrap" }}>

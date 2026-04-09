@@ -2254,12 +2254,29 @@ function AdminDashboard({ addToast, onClose, adminKey, setAdminKey, authed, setA
     try { await pfAdmin("UpdateUserData", { PlayFabId: searchResult.id, Data: editData }, adminKey); setEditMsg("✅ Player data updated!");
       addToast({ type: "success", title: "Data Saved", message: `Updated data for ${searchResult.id}` }); } catch (e) { setEditMsg("❌ " + e.message);
     } };
-  const banPlayer = async () => { if (!searchResult) return; setBanMsg("");
-    try { const banPayload = { PlayFabId: searchResult.id, Reason: banReason || "Admin action" };
-      if (banDuration !== "permanent") banPayload.DurationInHours = parseInt(banDuration, 10); await pfAdmin("BanUsers", { Bans: [banPayload] }, adminKey);
-      const durationLabel = BAN_DURATIONS.find(d => d.value === banDuration)?.label || banDuration; setBanMsg(`✅ Player banned (${durationLabel}).`);
-      setSearchResult(prev => ({ ...prev, banned: true })); addToast({ type: "info", title: "Player Banned", message: `${searchResult.id} — ${durationLabel}` });
-    } catch (e) { setBanMsg("❌ " + e.message); } };
+  const banPlayer = async () => {
+    if (!searchResult) return; setBanMsg("");
+    try {
+      const banPayload = { PlayFabId: searchResult.id, Reason: banReason || "Admin action" };
+      if (banDuration !== "permanent") banPayload.DurationInHours = parseInt(banDuration, 10);
+      await pfAdmin("BanUsers", { Bans: [banPayload] }, adminKey);
+
+      // ── NEW: add to BannedPlayers list in TitleData ──
+      let bannedList = [];
+      try {
+        const td = await pfAdmin("GetTitleData", { Keys: ["BannedPlayers"] }, adminKey);
+        if (td.Data?.BannedPlayers) bannedList = JSON.parse(td.Data.BannedPlayers);
+      } catch {}
+      if (!bannedList.includes(searchResult.id)) bannedList.push(searchResult.id);
+      await pfAdmin("SetTitleData", { Key: "BannedPlayers", Value: JSON.stringify(bannedList) }, adminKey);
+      // ────────────────────────────────────────────────
+
+      const durationLabel = BAN_DURATIONS.find(d => d.value === banDuration)?.label || banDuration;
+      setBanMsg(`✅ Player banned (${durationLabel}).`);
+      setSearchResult(prev => ({ ...prev, banned: true }));
+      addToast({ type: "info", title: "Player Banned", message: `${searchResult.id} — ${durationLabel}` });
+    } catch (e) { setBanMsg("❌ " + e.message); }
+  };
   const unbanPlayer = async () => { if (!searchResult) return; setBanMsg("");
     try { await pfAdmin("RevokeAllBansForUser", { PlayFabId: searchResult.id }, adminKey); setBanMsg("✅ All bans revoked.");
       setSearchResult(prev => ({ ...prev, banned: false })); addToast({ type: "success", title: "Player Unbanned", message: searchResult.id + " has been unbanned." });

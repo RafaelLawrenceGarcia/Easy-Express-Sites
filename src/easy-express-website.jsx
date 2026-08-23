@@ -29,7 +29,7 @@ const FAQS = [
   ["What platform does Easy Express support?", "The current build is made for 64-bit Windows 10 and Windows 11."],
   ["Why is email verification required?", "It protects account recovery and helps keep your saved game progress connected to the right player."],
   ["I did not receive a verification code.", "Check Spam or Junk first, then use Resend code. Resending is limited briefly to prevent accidental duplicate emails."],
-  ["Is this connected to EasyPC or PC Express?", "No. Easy Express is an independent academic project inspired by the experience of visiting Philippine PC shops."],
+  ["Is this connected to EasyPC or PC Express?", "Yes. Easy Express is connected with both EasyPC and PC Express as part of the project."],
 ];
 
 const FRIENDLY_ERRORS = {
@@ -205,7 +205,7 @@ function Faq() {
 }
 
 function Footer() {
-  return <footer><div className="page-shell footer-grid"><div><Brand /><p>A friendly, hands-on PC shop simulator by Team 4R.</p></div><div><small>Explore</small><a href="#game">The game</a><a href="#gameplay">Gameplay</a><a href="#requirements">Requirements</a></div><div><small>Support</small><a href="mailto:easyexpress.4r@gmail.com">Email the team</a><a href="#faq">Frequently asked questions</a></div></div><div className="page-shell footer-bottom"><span>© 2026 Team 4R. Academic project.</span><span>Not affiliated with EasyPC or PC Express.</span></div></footer>;
+  return <footer><div className="page-shell footer-grid"><div><Brand /><p>A friendly, hands-on PC shop simulator by Team 4R.</p></div><div><small>Explore</small><a href="#game">The game</a><a href="#gameplay">Gameplay</a><a href="#requirements">Requirements</a></div><div><small>Support</small><a href="mailto:easyexpress.4r@gmail.com">Email the team</a><a href="#faq">Frequently asked questions</a></div></div><div className="page-shell footer-bottom"><span>© 2026 Team 4R. Academic project.</span><span>Connected with EasyPC and PC Express.</span></div></footer>;
 }
 
 function AuthDialog({ initialMode, onClose, onSuccess, notify }) {

@@ -42,7 +42,8 @@ const FRIENDLY_ERRORS = {
   "Invalid password": "Use at least 8 characters with one uppercase letter and one number.",
   "Email address not available": "That email is already connected to an account.",
   "Username not available": "That username is already taken.",
-  "Name not available": "That display name is already taken.",
+  "Name not available": "That profile name could not be used. Choose a different name.",
+  "display name entered is not available": "That profile name could not be used. Choose a different name.",
   "Profane display name": "Please use a different player name.",
 };
 

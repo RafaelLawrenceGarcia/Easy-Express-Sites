@@ -219,7 +219,6 @@ export async function registerUser({ username, email, password, displayName }) {
       Username:                  username,
       Email:                     email,
       Password:                  password,
-      DisplayName:               displayName || username,
       RequireBothUsernameAndEmail: true,
     }),
   });
@@ -229,6 +228,22 @@ export async function registerUser({ username, email, password, displayName }) {
     const detail = Object.values(data.errorDetails || {}).flat().find(Boolean);
     throw new Error(detail || data.errorMessage || data.error || "Registration failed");
   }
+
+  // Real names are not PlayFab display names: PlayFab requires display names
+  // to be unique, while many players legitimately share the same name. Keep
+  // the profile name as private, client-readable user data instead.
+  if (displayName) {
+    try {
+      await fetch(`${BASE_URL}/Client/UpdateUserData`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Authorization": data.data.SessionTicket },
+        body: JSON.stringify({ Data: { ProfileName: displayName }, Permission: "Private" }),
+      });
+    } catch {
+      // Registration remains valid if optional profile personalization fails.
+    }
+  }
+
   return data.data; // { SessionTicket, PlayFabId, ... }
 }
 
@@ -262,20 +277,33 @@ export async function loginWithUsername({ username, password }) {
  * login field (which may be an email address).
  */
 export async function getAccountInfo(sessionTicket) {
-  const res = await fetch(`${BASE_URL}/Client/GetAccountInfo`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Authorization": sessionTicket },
-    body: JSON.stringify({}),
-  });
+  const headers = { "Content-Type": "application/json", "X-Authorization": sessionTicket };
+  const [accountResponse, profileResponse] = await Promise.all([
+    fetch(`${BASE_URL}/Client/GetAccountInfo`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({}),
+    }),
+    fetch(`${BASE_URL}/Client/GetUserData`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ Keys: ["ProfileName"] }),
+    }),
+  ]);
 
-  const data = await res.json();
+  const data = await accountResponse.json();
   if (data.code !== 200) throw new Error(data.errorMessage || "Your session has expired.");
+
+  const profileData = await profileResponse.json().catch(() => ({}));
+  const profileName = profileData.code === 200
+    ? profileData.data?.Data?.ProfileName?.Value || ""
+    : "";
 
   const account = data.data?.AccountInfo ?? {};
   return {
     playFabId: account.PlayFabId || "",
     username: account.Username || account.TitleInfo?.DisplayName || "Player",
-    displayName: account.TitleInfo?.DisplayName || account.Username || "Player",
+    displayName: profileName || account.TitleInfo?.DisplayName || account.Username || "Player",
     email: account.PrivateInfo?.Email || "",
   };
 }

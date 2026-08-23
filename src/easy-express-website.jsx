@@ -403,7 +403,7 @@ export default function EasyExpressSite() {
 
   useEffect(() => { fetchTitleData(["GameNews"]).then((data) => { if (data.GameNews) { const parsed = JSON.parse(data.GameNews); if (Array.isArray(parsed)) setNews(parsed); } }).catch(() => {}); }, []);
 
-  const download = (full) => { const url = full ? FULL_URL : DEMO_URL; if (!url) return notify(`${full ? "Full game" : "Demo"} download link has not been configured yet.`, "warning"); window.open(url, "_blank", "noopener,noreferrer"); };
+  const download = (full) => { const url = full ? FULL_URL : DEMO_URL; if (!url) return notify(`${full ? "Full game" : "Demo"} download link has not been configured yet.`, "warning"); window.location.assign(url); };
   const purchase = async () => { if (!sessionTicket) { setShowAccount(false); setAuthMode("login"); return; } try { notify("Preparing secure checkout…"); const result = await apiRequest("/api/create-checkout", { method: "qrph", sessionTicket }); window.location.href = result.checkoutUrl; } catch (err) { notify(friendlyError(err), "warning"); } };
 
   if (showAdmin && isAdmin) return <AdminDashboard sessionTicket={sessionTicket} news={news} setNews={setNews} onClose={() => setShowAdmin(false)} notify={notify} />;

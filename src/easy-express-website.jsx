@@ -35,9 +35,15 @@ const FAQS = [
 const FRIENDLY_ERRORS = {
   "User not found": "We could not find that account.",
   "Invalid username or password": "The username/email or password is incorrect.",
+  "Invalid input parameters": "One or more account details are invalid. Check the highlighted rules and try again.",
+  "Username contains invalid characters": "Usernames can contain only letters and numbers—no spaces, dashes, or underscores.",
+  "Invalid username": "Use a username containing 3–20 letters and numbers only.",
+  "Invalid email address": "Enter a valid email address.",
+  "Invalid password": "Use at least 8 characters with one uppercase letter and one number.",
   "Email address not available": "That email is already connected to an account.",
   "Username not available": "That username is already taken.",
   "Name not available": "That display name is already taken.",
+  "Profane display name": "Please use a different player name.",
 };
 
 function friendlyError(error, fallback = "Something went wrong. Please try again.") {
@@ -222,7 +228,9 @@ function AuthDialog({ initialMode, onClose, onSuccess, notify }) {
   const validateStep = () => {
     if (step === 1) {
       if (!form.firstName.trim() || !form.lastName.trim()) return setError("Enter your first and last name.");
-      if (!/^[A-Za-z0-9_-]{3,20}$/.test(form.username)) return setError("Username must be 3–20 letters, numbers, dashes, or underscores.");
+      const fullName = `${form.firstName.trim()} ${form.lastName.trim()}`.replace(/\s+/g, " ");
+      if (fullName.length > 25) return setError("Keep your first and last name to 25 characters total.");
+      if (!/^[A-Za-z0-9]{3,20}$/.test(form.username.trim())) return setError("Username must be 3–20 letters and numbers only—no spaces, dashes, or underscores.");
       setStep(2);
     } else {
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) return setError("Enter a valid email address.");
@@ -242,8 +250,11 @@ function AuthDialog({ initialMode, onClose, onSuccess, notify }) {
     if (!terms) return setError("Please accept the Terms and Privacy Notice to continue.");
     setLoading(true); setError("");
     try {
-      const result = await registerUser({ username: form.username.trim(), email: form.email.trim().toLowerCase(), password: form.password, displayName: `${form.firstName.trim()} ${form.lastName.trim()}` });
-      const details = { sessionTicket: result.SessionTicket, playFabId: result.PlayFabId, username: form.username.trim(), email: form.email.trim().toLowerCase() };
+      const username = form.username.trim();
+      const email = form.email.trim().toLowerCase();
+      const displayName = `${form.firstName.trim()} ${form.lastName.trim()}`.replace(/\s+/g, " ");
+      const result = await registerUser({ username, email, password: form.password, displayName });
+      const details = { sessionTicket: result.SessionTicket, playFabId: result.PlayFabId, username, email };
       setRegistration(details);
       sessionStorage.setItem("ee_pending_registration", JSON.stringify(details));
       await sendVerification(details);
@@ -284,7 +295,7 @@ function AuthDialog({ initialMode, onClose, onSuccess, notify }) {
     {mode === "login" && <form onSubmit={login}><div className="form-heading"><span>Player login</span><h2 id="auth-title">Welcome back.</h2><p>Use the same credentials you use in Easy Express.</p></div><label>Username or email<input ref={firstInput} autoComplete="username" value={form.loginId} onChange={update("loginId")} placeholder="playername or you@email.com" /></label><label>Password<div className="password-field"><input type={showPassword ? "text" : "password"} autoComplete="current-password" value={form.loginPassword} onChange={update("loginPassword")} placeholder="Your password" /><button type="button" onClick={() => setShowPassword((value) => !value)}>{showPassword ? "Hide" : "Show"}</button></div></label><div className="form-row"><label className="check-label"><input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />Remember me on this device</label><a href="#/reset-password" onClick={onClose}>Forgot password?</a></div><button className="button form-submit" disabled={loading}>{loading ? "Signing in…" : "Log in"}<b>→</b></button><p className="form-switch">New to Easy Express? <button type="button" onClick={() => switchMode("signup")}>Create an account</button></p></form>}
     {mode === "signup" && <div><div className="form-heading"><span>Create account</span><h2 id="auth-title">Start your shop.</h2><p>Step {step} of 3 · {step === 1 ? "Your player identity" : step === 2 ? "Secure credentials" : "Review and verify"}</p></div><div className="step-track"><i className="done" /><i className={step >= 2 ? "done" : ""} /><i className={step >= 3 ? "done" : ""} /></div>
       {pending && step === 1 && <button className="pending-registration" onClick={() => { setRegistration(pending); setMode("verify"); setError(""); }}>Resume verification for <strong>{pending.username}</strong><span>→</span></button>}
-      {step === 1 && <div className="form-fields"><div className="two-columns"><label>First name<input ref={firstInput} autoComplete="given-name" value={form.firstName} onChange={update("firstName")} placeholder="Juan" /></label><label>Last name<input autoComplete="family-name" value={form.lastName} onChange={update("lastName")} placeholder="Dela Cruz" /></label></div><label>Player username<input autoComplete="username" value={form.username} onChange={update("username")} placeholder="juan_builds" /><small>3–20 characters. Letters, numbers, dashes, and underscores only.</small></label><button className="button form-submit" onClick={validateStep}>Continue <b>→</b></button></div>}
+      {step === 1 && <div className="form-fields"><div className="two-columns"><label>First name<input ref={firstInput} autoComplete="given-name" maxLength="24" value={form.firstName} onChange={update("firstName")} placeholder="Juan" /></label><label>Last name<input autoComplete="family-name" maxLength="24" value={form.lastName} onChange={update("lastName")} placeholder="Dela Cruz" /></label></div><label>Player username<input autoComplete="username" autoCapitalize="none" spellCheck="false" maxLength="20" value={form.username} onChange={update("username")} placeholder="juanbuilds" /><small>3–20 characters. Letters and numbers only—no spaces or symbols.</small></label><button className="button form-submit" onClick={validateStep}>Continue <b>→</b></button></div>}
       {step === 2 && <div className="form-fields"><label>Email address<input ref={firstInput} type="email" autoComplete="email" value={form.email} onChange={update("email")} placeholder="you@email.com" /><small>We will send your 6-digit verification code here.</small></label><label>Password<div className="password-field"><input type={showPassword ? "text" : "password"} autoComplete="new-password" value={form.password} onChange={update("password")} placeholder="At least 8 characters" /><button type="button" onClick={() => setShowPassword((value) => !value)}>{showPassword ? "Hide" : "Show"}</button></div><small>Use one uppercase letter and one number.</small></label><label>Confirm password<input type="password" autoComplete="new-password" value={form.confirm} onChange={update("confirm")} placeholder="Type it again" /></label><div className="button-pair"><button className="button button-ghost" onClick={() => setStep(1)}>Back</button><button className="button" onClick={validateStep}>Review <b>→</b></button></div></div>}
       {step === 3 && <div className="review-card"><div><small>Name</small><strong>{form.firstName} {form.lastName}</strong></div><div><small>Username</small><strong>{form.username}</strong></div><div><small>Email</small><strong>{form.email}</strong></div><label className="check-label terms-check"><input type="checkbox" checked={terms} onChange={(e) => setTerms(e.target.checked)} />I agree to the Terms of Service and Privacy Notice.</label><div className="button-pair"><button className="button button-ghost" onClick={() => setStep(2)}>Back</button><button className="button" onClick={signUp} disabled={loading}>{loading ? "Creating account…" : "Create & send code"}</button></div></div>}
       <p className="form-switch">Already have an account? <button onClick={() => switchMode("login")}>Log in</button></p></div>}

@@ -225,7 +225,10 @@ export async function registerUser({ username, email, password, displayName }) {
   });
 
   const data = await res.json();
-  if (data.code !== 200) throw new Error(data.errorMessage || "Registration failed");
+  if (data.code !== 200) {
+    const detail = Object.values(data.errorDetails || {}).flat().find(Boolean);
+    throw new Error(detail || data.errorMessage || data.error || "Registration failed");
+  }
   return data.data; // { SessionTicket, PlayFabId, ... }
 }
 

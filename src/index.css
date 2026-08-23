@@ -16,7 +16,7 @@
   --orange: #ffb24c;
   --green: #54df9d;
   --red: #ff6f6f;
-  --shell: min(1180px, calc(100vw - 48px));
+  --shell: min(1320px, calc(100vw - 64px));
 }
 
 * { box-sizing: border-box; }
@@ -368,6 +368,126 @@ footer { background: #050b0e; padding: 75px 0 28px; }
 @keyframes fade-in { from { opacity: 0; } }
 @keyframes modal-up { from { opacity: 0; transform: translateY(20px) scale(.985); } }
 @keyframes toast-in { from { opacity: 0; transform: translateX(20px); } }
+
+/* Wide desktop layouts: keep content substantial and readable instead of
+   leaving a laptop-sized column floating in the center of large monitors. */
+@media (min-width: 1600px) {
+  :root { --shell: min(1600px, calc(100vw - 120px)); }
+
+  .site-header { height: 84px; }
+  .brand { gap: 14px; }
+  .brand-mark { width: 43px; height: 43px; padding: 9px; }
+  .brand-copy strong { font-size: 15px; }
+  .brand-copy small { font-size: 10px; }
+  .nav-links { gap: 32px; }
+  .nav-links > a, .text-button, .nav-admin { font-size: 13px; }
+  .button { min-height: 52px; padding-inline: 26px; font-size: 14px; }
+  .button-small { min-height: 42px; font-size: 12px; }
+
+  .hero { min-height: clamp(880px, 72vh, 980px); padding-top: 84px; }
+  .hero-content { padding-block: 112px 80px; }
+  .hero h1 { max-width: 850px; font-size: clamp(6rem, 5.6vw, 7rem); }
+  .hero-lede { max-width: 680px; font-size: 17px; }
+  .eyebrow, .section-kicker { font-size: 11px; }
+  .hero-actions { margin-top: 38px; }
+  .hero-meta { margin-top: 60px; }
+  .hero-meta div { min-width: 180px; }
+  .hero-meta small, .account-details small, .spec-card small { font-size: 10px; }
+  .hero-meta strong, .download-inline { font-size: 13px; }
+  .hero-stamp { width: 170px; height: 170px; right: 3.5vw; bottom: 52px; }
+  .hero-stamp span { font-size: 38px; }
+
+  .intro-section, .gameplay-section, .media-section, .news-section, .requirements-section, .faq-section { padding-block: 135px; }
+  .intro-grid { grid-template-columns: 1.05fr .95fr; gap: 130px; }
+  .intro-grid h2, .section-heading h2, .gameplay-copy h2, .requirements-layout h2, .faq-layout h2, .account-cta h2 { font-size: clamp(4.25rem, 4vw, 5.25rem); }
+  .intro-grid p { font-size: 18px; }
+  .intro-grid .muted { font-size: 14px; }
+  .feature-grid { margin-top: 85px; }
+  .feature-card { min-height: 320px; padding: 42px 38px 34px; }
+  .feature-card > span { font-size: 11px; }
+  .feature-card h3 { font-size: 23px; }
+  .feature-card p { font-size: 15px; }
+
+  .gameplay-layout { grid-template-columns: 1.2fr .8fr; gap: 120px; }
+  .gameplay-copy > p { font-size: 16px; }
+  .process-list strong { font-size: 16px; }
+  .process-list small { font-size: 14px; }
+  .section-heading { margin-bottom: 58px; }
+  .section-heading h2 { font-size: clamp(4rem, 3.6vw, 4.8rem); }
+  .segmented button { min-width: 104px; height: 42px; font-size: 13px; }
+  .news-list article { grid-template-columns: 230px minmax(300px, .8fr) 1fr; gap: 45px; padding-block: 38px; }
+  .news-list h3 { font-size: 22px; }
+  .news-list p { font-size: 15px; }
+  .requirements-layout { grid-template-columns: .7fr 1.3fr; gap: 130px; }
+  .requirements-layout > div:first-child > p { max-width: 520px; font-size: 16px; }
+  .spec-card div { min-height: 132px; padding: 30px; }
+  .spec-card strong { font-size: 15px; }
+  .faq-layout { grid-template-columns: .65fr 1.35fr; gap: 140px; }
+  .faq-layout > div:first-child > a { font-size: 14px; }
+  .faq-list summary { padding-block: 29px; font-size: 16px; }
+  .faq-list p { font-size: 15px; }
+
+  .account-cta { padding-block: 115px; }
+  .account-cta h2 { max-width: 1050px; }
+  .account-cta p { max-width: 720px; font-size: 17px; }
+  .footer-grid > div:first-child p, .footer-grid > div > a { font-size: 14px; }
+
+  .auth-dialog { width: min(1120px, calc(100vw - 120px)); min-height: 680px; grid-template-columns: 380px 1fr; }
+  .auth-dialog > aside { padding: 42px; }
+  .auth-dialog > aside h2 { font-size: 42px; }
+  .auth-dialog > aside p, .auth-dialog > aside ul { font-size: 13px; }
+  .auth-dialog > section { padding: 58px 68px 44px; }
+  .auth-dialog label, .account-dialog label, .admin-main label { font-size: 10px; }
+  .auth-dialog input, .admin-main input, .admin-main textarea, .admin-main select { min-height: 52px; font-size: 14px; }
+  .account-dialog { width: min(680px, calc(100vw - 120px)); padding: 50px; }
+  .admin-content { max-width: 1800px; padding-inline: clamp(45px, 4vw, 80px); }
+}
+
+@media (min-width: 2400px) {
+  :root { --shell: min(2200px, calc(100vw - 240px)); }
+
+  .site-header { height: 92px; }
+  .brand-mark { width: 48px; height: 48px; padding: 10px; }
+  .brand-copy strong { font-size: 17px; }
+  .brand-copy small { font-size: 11px; }
+  .nav-links { gap: 38px; }
+  .nav-links > a, .text-button, .nav-admin { font-size: 14px; }
+  .button { min-height: 56px; padding-inline: 30px; font-size: 15px; }
+  .button-small { min-height: 45px; font-size: 13px; }
+
+  .hero { min-height: min(1000px, calc(100vh - 24px)); padding-top: 92px; }
+  .hero-image { object-position: 72% center; }
+  .hero-content { padding-block: 125px 90px; }
+  .hero h1 { max-width: 980px; font-size: clamp(7rem, 4.3vw, 9rem); }
+  .hero-lede { max-width: 760px; font-size: 19px; }
+  .eyebrow, .section-kicker { font-size: 12px; }
+  .hero-meta div { min-width: 205px; }
+  .hero-meta small, .account-details small, .spec-card small { font-size: 11px; }
+  .hero-meta strong, .download-inline { font-size: 14px; }
+  .hero-stamp { width: 190px; height: 190px; }
+
+  .intro-section, .gameplay-section, .media-section, .news-section, .requirements-section, .faq-section { padding-block: 150px; }
+  .intro-grid { gap: 170px; }
+  .intro-grid h2, .section-heading h2, .gameplay-copy h2, .requirements-layout h2, .faq-layout h2, .account-cta h2 { font-size: clamp(5rem, 3.4vw, 6rem); }
+  .intro-grid p { font-size: 20px; }
+  .feature-card { min-height: 350px; padding: 48px 44px 38px; }
+  .feature-card h3 { font-size: 25px; }
+  .feature-card p { font-size: 16px; }
+  .gameplay-layout { gap: 160px; }
+  .gameplay-copy > p { font-size: 18px; }
+  .process-list strong { font-size: 17px; }
+  .process-list small { font-size: 15px; }
+  .section-heading h2 { font-size: clamp(4.6rem, 3.2vw, 5.5rem); }
+  .news-list h3 { font-size: 24px; }
+  .news-list p, .requirements-layout > div:first-child > p, .faq-list p { font-size: 16px; }
+  .requirements-layout, .faq-layout { gap: 170px; }
+  .faq-list summary { font-size: 17px; }
+
+  .auth-dialog { width: min(1280px, calc(100vw - 200px)); min-height: 730px; grid-template-columns: 430px 1fr; }
+  .auth-dialog > section { padding-inline: 78px; }
+  .account-dialog { width: min(760px, calc(100vw - 200px)); }
+  .admin-content { max-width: 2200px; }
+}
 
 @media (max-width: 980px) {
   :root { --shell: min(100% - 36px, 900px); }

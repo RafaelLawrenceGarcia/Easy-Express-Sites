@@ -8,7 +8,7 @@ import {
   registerUser,
 } from "./playfab";
 
-const DEMO_URL = import.meta.env.VITE_DEMO_DOWNLOAD_URL || "";
+const DEMO_URL = import.meta.env.VITE_DEMO_DOWNLOAD_URL || "https://5vjqsakcfsmagarc.public.blob.vercel-storage.com/downloads/Easy-Express-Demo.rar";
 const FULL_URL = import.meta.env.VITE_FULL_GAME_DOWNLOAD_URL || "";
 
 const FEATURES = [

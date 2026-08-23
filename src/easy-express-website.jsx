@@ -8,7 +8,6 @@ import {
   registerUser,
 } from "./playfab";
 
-const ADMIN_USERNAME = "masteradmin";
 const DEMO_URL = import.meta.env.VITE_DEMO_DOWNLOAD_URL || "";
 const FULL_URL = import.meta.env.VITE_FULL_GAME_DOWNLOAD_URL || "";
 
@@ -91,9 +90,8 @@ function Toasts({ items }) {
   );
 }
 
-function Header({ account, onAuth, onAccount, onAdmin }) {
+function Header({ account, isAdmin, onAuth, onAccount, onAdmin }) {
   const [open, setOpen] = useState(false);
-  const isAdmin = account?.username?.toLowerCase() === ADMIN_USERNAME;
   const close = () => setOpen(false);
   return (
     <header className="site-header">
@@ -316,6 +314,11 @@ async function adminRequest(sessionTicket, service, endpoint, body) {
   return result.data;
 }
 
+async function checkAdminStatus(sessionTicket) {
+  const result = await adminRequest(sessionTicket, "Meta", "GetAdminStatus", {});
+  return Boolean(result?.isAdmin);
+}
+
 function AdminDashboard({ sessionTicket, news, setNews, onClose, notify }) {
   const [tab, setTab] = useState("overview");
   const [query, setQuery] = useState("");
@@ -362,12 +365,13 @@ export default function EasyExpressSite() {
   const [account, setAccount] = useState(null);
   const [sessionTicket, setSessionTicket] = useState("");
   const [ownsGame, setOwnsGame] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [news, setNews] = useState(FALLBACK_NEWS);
   const { toasts, notify } = useToasts();
 
   const clearSession = useCallback((announce = false) => {
     [localStorage, sessionStorage].forEach((storage) => ["ee_session_ticket", "ee_auth_pfid", "ee_auth_username", "ee_account"].forEach((key) => storage.removeItem(key)));
-    setAccount(null); setSessionTicket(""); setOwnsGame(false); setShowAccount(false); setShowAdmin(false);
+    setAccount(null); setSessionTicket(""); setOwnsGame(false); setIsAdmin(false); setShowAccount(false); setShowAdmin(false);
     if (announce) notify("You have been logged out.");
   }, [notify]);
 
@@ -378,12 +382,23 @@ export default function EasyExpressSite() {
     storage.setItem("ee_session_ticket", ticket); storage.setItem("ee_auth_pfid", identity.playFabId || ""); storage.setItem("ee_auth_username", identity.username || ""); storage.setItem("ee_account", JSON.stringify(identity));
     setAccount(identity); setSessionTicket(ticket);
     checkFullGameOwnership(ticket).then(setOwnsGame).catch(() => setOwnsGame(false));
+    checkAdminStatus(ticket).then(setIsAdmin).catch(() => setIsAdmin(false));
   }, []);
 
   useEffect(() => {
     const ticket = localStorage.getItem("ee_session_ticket") || sessionStorage.getItem("ee_session_ticket");
     if (!ticket) return;
-    getAccountInfo(ticket).then((identity) => { setAccount(identity); setSessionTicket(ticket); return checkFullGameOwnership(ticket); }).then(setOwnsGame).catch(() => clearSession(false));
+    getAccountInfo(ticket).then((identity) => {
+      setAccount(identity);
+      setSessionTicket(ticket);
+      return Promise.all([
+        checkFullGameOwnership(ticket).catch(() => false),
+        checkAdminStatus(ticket).catch(() => false),
+      ]);
+    }).then(([hasFullGame, hasAdminAccess]) => {
+      setOwnsGame(hasFullGame);
+      setIsAdmin(hasAdminAccess);
+    }).catch(() => clearSession(false));
   }, [clearSession]);
 
   useEffect(() => { fetchTitleData(["GameNews"]).then((data) => { if (data.GameNews) { const parsed = JSON.parse(data.GameNews); if (Array.isArray(parsed)) setNews(parsed); } }).catch(() => {}); }, []);
@@ -391,7 +406,7 @@ export default function EasyExpressSite() {
   const download = (full) => { const url = full ? FULL_URL : DEMO_URL; if (!url) return notify(`${full ? "Full game" : "Demo"} download link has not been configured yet.`, "warning"); window.open(url, "_blank", "noopener,noreferrer"); };
   const purchase = async () => { if (!sessionTicket) { setShowAccount(false); setAuthMode("login"); return; } try { notify("Preparing secure checkout…"); const result = await apiRequest("/api/create-checkout", { method: "qrph", sessionTicket }); window.location.href = result.checkoutUrl; } catch (err) { notify(friendlyError(err), "warning"); } };
 
-  if (showAdmin && account?.username?.toLowerCase() === ADMIN_USERNAME) return <AdminDashboard sessionTicket={sessionTicket} news={news} setNews={setNews} onClose={() => setShowAdmin(false)} notify={notify} />;
+  if (showAdmin && isAdmin) return <AdminDashboard sessionTicket={sessionTicket} news={news} setNews={setNews} onClose={() => setShowAdmin(false)} notify={notify} />;
 
-  return <div className="site-root"><Toasts items={toasts} /><Header account={account} onAuth={setAuthMode} onAccount={() => setShowAccount(true)} onAdmin={() => setShowAdmin(true)} /><Hero account={account} ownsGame={ownsGame} onAuth={setAuthMode} onAccount={() => setShowAccount(true)} onDownload={download} /><Footer />{authMode && <AuthDialog initialMode={authMode} onClose={() => setAuthMode(null)} onSuccess={saveSession} notify={notify} />}{showAccount && account && <AccountDialog account={account} ownsGame={ownsGame} onClose={() => setShowAccount(false)} onLogout={() => clearSession(true)} onPurchase={purchase} onDownload={download} />}</div>;
+  return <div className="site-root"><Toasts items={toasts} /><Header account={account} isAdmin={isAdmin} onAuth={setAuthMode} onAccount={() => setShowAccount(true)} onAdmin={() => setShowAdmin(true)} /><Hero account={account} ownsGame={ownsGame} onAuth={setAuthMode} onAccount={() => setShowAccount(true)} onDownload={download} /><Footer />{authMode && <AuthDialog initialMode={authMode} onClose={() => setAuthMode(null)} onSuccess={saveSession} notify={notify} />}{showAccount && account && <AccountDialog account={account} ownsGame={ownsGame} onClose={() => setShowAccount(false)} onLogout={() => clearSession(true)} onPurchase={purchase} onDownload={download} />}</div>;
 }

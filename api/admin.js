@@ -1,6 +1,11 @@
 const TITLE_ID = process.env.PLAYFAB_TITLE_ID || "164227";
 const PLAYFAB_BASE = `https://${TITLE_ID}.playfabapi.com`;
-const ADMIN_USERNAME = (process.env.EASY_EXPRESS_ADMIN_USERNAME || "masteradmin").toLowerCase();
+const ADMIN_PLAYFAB_IDS = new Set(
+  (process.env.EASY_EXPRESS_ADMIN_PLAYFAB_IDS || "")
+    .split(",")
+    .map((value) => value.trim().toUpperCase())
+    .filter(Boolean),
+);
 
 const ALLOWED = {
   Admin: new Set([
@@ -38,11 +43,21 @@ export default async function handler(req, res) {
 
   const { sessionTicket, service, endpoint, body = {} } = req.body || {};
   if (!sessionTicket) return res.status(401).json({ error: "Sign in is required." });
-  if (!ALLOWED[service]?.has(endpoint)) return res.status(400).json({ error: "Admin operation is not allowed." });
+  const isStatusRequest = service === "Meta" && endpoint === "GetAdminStatus";
+  if (!isStatusRequest && !ALLOWED[service]?.has(endpoint)) {
+    return res.status(400).json({ error: "Admin operation is not allowed." });
+  }
 
   try {
     const account = await identify(sessionTicket);
-    if (!account || String(account.Username || "").toLowerCase() !== ADMIN_USERNAME) {
+    const isAdmin = Boolean(
+      account?.PlayFabId
+      && ADMIN_PLAYFAB_IDS.has(String(account.PlayFabId).toUpperCase()),
+    );
+
+    if (isStatusRequest) return res.status(200).json({ data: { isAdmin } });
+
+    if (!isAdmin) {
       return res.status(403).json({ error: "This account does not have admin access." });
     }
 

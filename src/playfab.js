@@ -150,7 +150,7 @@ export async function fetchPublicLeaderboard(statisticName, maxResults = 10) {
     try {
       const { entries, ts } = JSON.parse(raw);
       if (Date.now() - ts < LB_CACHE_TTL) return entries;
-    } catch (_) { /* stale cache — fall through */ }
+    } catch { /* stale cache — fall through */ }
   }
 
   let ticket;
@@ -251,6 +251,30 @@ export async function loginWithUsername({ username, password }) {
   const data = await res.json();
   if (data.code !== 200) throw new Error(data.errorMessage || "Login failed");
   return data.data;
+}
+
+/**
+ * Returns the canonical account identity for an authenticated session.
+ * The UI uses this instead of trusting whatever the player typed into the
+ * login field (which may be an email address).
+ */
+export async function getAccountInfo(sessionTicket) {
+  const res = await fetch(`${BASE_URL}/Client/GetAccountInfo`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Authorization": sessionTicket },
+    body: JSON.stringify({}),
+  });
+
+  const data = await res.json();
+  if (data.code !== 200) throw new Error(data.errorMessage || "Your session has expired.");
+
+  const account = data.data?.AccountInfo ?? {};
+  return {
+    playFabId: account.PlayFabId || "",
+    username: account.Username || account.TitleInfo?.DisplayName || "Player",
+    displayName: account.TitleInfo?.DisplayName || account.Username || "Player",
+    email: account.PrivateInfo?.Email || "",
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

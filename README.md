@@ -1,16 +1,23 @@
-# React + Vite
+# Easy Express website
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Official website and player portal for **Easy Express**, the Team 4R PC shop simulator.
 
-Currently, two official plugins are available:
+## Local development
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+1. Copy `.env.example` to `.env.local` and fill in the required values.
+2. Run `npm install`.
+3. Run `npm run dev`.
 
-## React Compiler
+## Vercel configuration
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Set the server variables from `.env.example` in the Vercel project settings. `PLAYFAB_SECRET_KEY`, `PAYMONGO_SECRET_KEY`, and `PAYMONGO_WEBHOOK_SECRET` must never use a `VITE_` prefix because they are server-only secrets.
 
-## Expanding the ESLint configuration
+The PlayFab secret that was previously included in frontend source must be rotated in PlayFab before deploying this version.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Account flow
+
+- Registration creates the PlayFab account, then sends the OTP from a serverless endpoint so the code is never returned to browser code.
+- Incomplete registrations can resume email verification on the same device.
+- Login resolves the canonical PlayFab username, whether the player entered an email or username.
+- Password recovery uses PlayFab's native single-use recovery link.
+- Admin operations are allow-listed and proxied through `/api/admin`; the PlayFab secret remains on the server.

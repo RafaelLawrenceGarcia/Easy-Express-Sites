@@ -11,7 +11,10 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default async function handler(req, res) {
-  const SITE_URL = process.env.SITE_URL || "https://easy-express.vercel.app";
+  const IS_PRODUCTION = process.env.VERCEL_ENV === "production";
+  const SITE_URL = IS_PRODUCTION
+    ? (process.env.SITE_URL || "https://easy-express-sites.vercel.app")
+    : "http://localhost:3000";
 
   res.setHeader("Access-Control-Allow-Origin", SITE_URL);
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -19,17 +22,37 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const { method, playFabId } = req.body;
+  const { method, sessionTicket } = req.body;
 
   // ── Input validation ───────────────────────────────────────────────────────
   if (!method || !["gcash", "card", "qrph"].includes(method))
     return res.status(400).json({ error: "Invalid payment method. Choose GCash or Card." });
-  if (!playFabId || typeof playFabId !== "string" || playFabId.length < 10)
-    return res.status(400).json({ error: "A valid logged-in account is required to purchase." });
+  if (!sessionTicket || typeof sessionTicket !== "string")
+    return res.status(401).json({ error: "Please log in again before purchasing." });
 
   const PAYMONGO_SECRET = process.env.PAYMONGO_SECRET_KEY;
   if (!PAYMONGO_SECRET)
     return res.status(500).json({ error: "Payment gateway is not configured. Contact support." });
+  if (!IS_PRODUCTION && PAYMONGO_SECRET.startsWith("sk_live_"))
+    return res.status(503).json({ error: "Live payments are disabled on localhost. Add a PayMongo test secret key to test checkout safely." });
+
+  // Resolve the PlayFab ID from the authenticated session. Never trust an ID
+  // supplied by the browser, otherwise a checkout could unlock another account.
+  const TITLE_ID = process.env.PLAYFAB_TITLE_ID || "164227";
+  let playFabId;
+  try {
+    const accountRes = await fetch(`https://${TITLE_ID}.playfabapi.com/Client/GetAccountInfo`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Authorization": sessionTicket },
+      body: "{}",
+    });
+    const accountData = await accountRes.json();
+    if (accountData.code !== 200) throw new Error("Session expired");
+    playFabId = accountData.data?.AccountInfo?.PlayFabId;
+    if (!playFabId) throw new Error("Account not found");
+  } catch {
+    return res.status(401).json({ error: "Your login session expired. Please log in again." });
+  }
 
   // ── Build PayMongo Checkout Session payload ────────────────────────────────
   const payload = {

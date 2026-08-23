@@ -4,6 +4,7 @@ const PLAYFAB_BASE = `https://${TITLE_ID}.playfabapi.com`;
 const EMAILJS_SERVICE_ID = process.env.EMAILJS_SERVICE_ID || "service_3ixsdwk";
 const EMAILJS_TEMPLATE_ID = process.env.EMAILJS_TEMPLATE_ID || "template_glp9rof";
 const EMAILJS_PUBLIC_KEY = process.env.EMAILJS_PUBLIC_KEY || "3LQw31VLjecEmrw0D";
+const SITE_URL = process.env.SITE_URL || "https://easy-express-sites-izwi.vercel.app";
 
 const recentSends = new Map();
 
@@ -65,7 +66,11 @@ export default async function handler(req, res) {
 
       const mailResponse = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Origin: SITE_URL,
+          Referer: `${SITE_URL}/`,
+        },
         body: JSON.stringify({
           service_id: EMAILJS_SERVICE_ID,
           template_id: EMAILJS_TEMPLATE_ID,
@@ -77,7 +82,10 @@ export default async function handler(req, res) {
           },
         }),
       });
-      if (!mailResponse.ok) throw new Error("The verification email could not be sent. Please try again.");
+      if (!mailResponse.ok) {
+        console.error(`EmailJS rejected a verification message with status ${mailResponse.status}.`);
+        throw new Error("The verification email could not be sent. Please try again.");
+      }
 
       recentSends.set(key, Date.now());
       return res.status(200).json({ success: true });

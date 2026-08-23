@@ -242,8 +242,11 @@ function AuthDialog({ initialMode, onClose, onSuccess, notify }) {
   };
 
   const sendVerification = async (details) => {
-    await apiRequest("/api/registration-verification", { action: "send", sessionTicket: details.sessionTicket, email: details.email, username: details.username });
+    // Once PlayFab creates the account, always move to verification—even if
+    // the mail provider needs a retry. Re-registering would only report that
+    // the username/email is already taken.
     setMode("verify");
+    await apiRequest("/api/registration-verification", { action: "send", sessionTicket: details.sessionTicket, email: details.email, username: details.username });
     notify(`Verification code sent to ${details.email}.`);
   };
 

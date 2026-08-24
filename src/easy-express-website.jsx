@@ -8,7 +8,7 @@ import {
   registerUser,
 } from "./playfab";
 
-const DEMO_URL = import.meta.env.VITE_DEMO_DOWNLOAD_URL || "https://5vjqsakcfsmagarc.public.blob.vercel-storage.com/downloads/Easy-Express-Demo-Multiplayer-PeerAuthority-v4-2026-08-24-fjCO2Gp7jRxiEktUk2ZyF1vZIdpUcz.rar";
+const DEMO_URL = import.meta.env.VITE_DEMO_DOWNLOAD_URL || "https://5vjqsakcfsmagarc.public.blob.vercel-storage.com/downloads/Easy-Express-Demo-Multiplayer-PeerAuthority-v4.1-2026-08-24-EYj7c0XAhYSYzZSK0v9UMxNp5wbjRV.rar";
 const FULL_URL = import.meta.env.VITE_FULL_GAME_DOWNLOAD_URL || "";
 
 const FEATURES = [

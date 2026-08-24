@@ -8,7 +8,7 @@ import {
   registerUser,
 } from "./playfab";
 
-const DEMO_URL = import.meta.env.VITE_DEMO_DOWNLOAD_URL || "https://5vjqsakcfsmagarc.public.blob.vercel-storage.com/downloads/Easy-Express-Demo-Multiplayer-Fixed-2026-08-24-bZHHJaKNs78kPOCeRvVoU44e00t0wF.rar";
+const DEMO_URL = import.meta.env.VITE_DEMO_DOWNLOAD_URL || "https://5vjqsakcfsmagarc.public.blob.vercel-storage.com/downloads/Easy-Express-Demo-Multiplayer-Authoritative-v2-2026-08-24-zzMiwcmXoCOAqt1trw1afZbN5Oe8s1.rar";
 const FULL_URL = import.meta.env.VITE_FULL_GAME_DOWNLOAD_URL || "";
 
 const FEATURES = [

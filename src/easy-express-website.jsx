@@ -39,7 +39,7 @@ const FRIENDLY_ERRORS = {
   "Invalid username": "Use a username containing 3–20 letters and numbers only.",
   "Invalid email address": "Enter a valid email address.",
   "Invalid password": "Use at least 8 characters with one uppercase letter and one number.",
-  "Email address not available": "That email is already connected to an account.",
+  "Email address not available": "That email still belongs to a PlayFab account. Log in or reset its password; deleting verification data does not delete the PlayFab identity.",
   "Username not available": "That username is already taken.",
   "Name not available": "That profile name could not be used. Choose a different name.",
   "display name entered is not available": "That profile name could not be used. Choose a different name.",
@@ -260,7 +260,16 @@ function AuthDialog({ initialMode, onClose, onSuccess, notify }) {
       setRegistration(details);
       sessionStorage.setItem("ee_pending_registration", JSON.stringify(details));
       await sendVerification(details);
-    } catch (err) { setError(friendlyError(err)); }
+    } catch (err) {
+      const message = String(err?.message || err);
+      if (message.toLowerCase().includes("email address not available")) {
+        setForm((value) => ({ ...value, loginId: value.email.trim().toLowerCase() }));
+        setMode("login");
+        setError(FRIENDLY_ERRORS["Email address not available"]);
+      } else {
+        setError(friendlyError(err));
+      }
+    }
     finally { setLoading(false); }
   };
 
@@ -305,8 +314,19 @@ function AuthDialog({ initialMode, onClose, onSuccess, notify }) {
   </section></div></div>;
 }
 
-function AccountDialog({ account, ownsGame, onClose, onLogout, onPurchase, onDownload }) {
-  return <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}><div className="account-dialog" role="dialog" aria-modal="true" aria-labelledby="account-title"><button className="modal-close" onClick={onClose} aria-label="Close">×</button><div className="account-header"><span className="account-avatar">{account.username?.slice(0, 1).toUpperCase()}</span><div><small>Player account</small><h2 id="account-title">{account.displayName || account.username}</h2><p>@{account.username}</p></div><span className={ownsGame ? "license license-full" : "license"}>{ownsGame ? "Full game" : "Demo access"}</span></div><div className="account-details"><div><small>PlayFab ID</small><strong>{account.playFabId || "Unavailable"}</strong></div><div><small>Account sync</small><strong className="status-good">Active</strong></div><div><small>Game access</small><strong>{ownsGame ? "Full version" : "Demo version"}</strong></div></div><div className="account-actions">{ownsGame ? <button className="button" onClick={() => onDownload(true)}>Download full version <b>↓</b></button> : <><button className="button" onClick={onPurchase}>Buy full game · ₱299</button><button className="button button-ghost" onClick={() => onDownload(false)}>Download demo</button></>}<a href="#/reset-password" onClick={onClose}>Change or recover password</a></div><div className="account-footer"><button onClick={onLogout}>Log out of this device</button><span>Signed in securely</span></div></div></div>;
+function AccountDialog({ account, ownsGame, onClose, onLogout, onDelete, onPurchase, onDownload }) {
+  const [deleteMode, setDeleteMode] = useState(false);
+  const [confirmation, setConfirmation] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+  const removeAccount = async () => {
+    if (confirmation !== "DELETE") return setDeleteError("Type DELETE exactly to continue.");
+    setDeleting(true); setDeleteError("");
+    try { await onDelete(confirmation); }
+    catch (err) { setDeleteError(friendlyError(err, "Account deletion failed.")); setDeleting(false); }
+  };
+
+  return <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}><div className="account-dialog" role="dialog" aria-modal="true" aria-labelledby="account-title"><button className="modal-close" onClick={onClose} aria-label="Close">×</button><div className="account-header"><span className="account-avatar">{account.username?.slice(0, 1).toUpperCase()}</span><div><small>Player account</small><h2 id="account-title">{account.displayName || account.username}</h2><p>@{account.username}</p></div><span className={ownsGame ? "license license-full" : "license"}>{ownsGame ? "Full game" : "Demo access"}</span></div><div className="account-details"><div><small>PlayFab ID</small><strong>{account.playFabId || "Unavailable"}</strong></div><div><small>Account sync</small><strong className="status-good">Active</strong></div><div><small>Game access</small><strong>{ownsGame ? "Full version" : "Demo version"}</strong></div></div><div className="account-actions">{ownsGame ? <button className="button" onClick={() => onDownload(true)}>Download full version <b>↓</b></button> : <><button className="button" onClick={onPurchase}>Buy full game · ₱299</button><button className="button button-ghost" onClick={() => onDownload(false)}>Download demo</button></>}<a href="#/reset-password" onClick={onClose}>Change or recover password</a></div>{deleteMode && <div className="delete-account-panel"><strong>Permanently delete this PlayFab account?</strong><p>This removes the login, email, cloud save, purchases, and player data. It cannot be undone.</p>{deleteError && <div className="form-alert">{deleteError}</div>}<label>Type DELETE to confirm<input value={confirmation} onChange={(e) => { setConfirmation(e.target.value.toUpperCase()); setDeleteError(""); }} autoComplete="off" /></label><div className="button-pair"><button className="button button-ghost" onClick={() => { setDeleteMode(false); setConfirmation(""); setDeleteError(""); }}>Cancel</button><button className="danger-action" disabled={deleting || confirmation !== "DELETE"} onClick={removeAccount}>{deleting ? "Deleting…" : "Delete permanently"}</button></div></div>}<div className="account-footer"><button onClick={onLogout}>Log out of this device</button><button onClick={() => setDeleteMode((value) => !value)}>{deleteMode ? "Cancel deletion" : "Delete account"}</button></div></div></div>;
 }
 
 async function adminRequest(sessionTicket, service, endpoint, body) {
@@ -405,8 +425,13 @@ export default function EasyExpressSite() {
 
   const download = (full) => { const url = full ? FULL_URL : DEMO_URL; if (!url) return notify(`${full ? "Full game" : "Demo"} download link has not been configured yet.`, "warning"); window.location.assign(url); };
   const purchase = async () => { if (!sessionTicket) { setShowAccount(false); setAuthMode("login"); return; } try { notify("Preparing secure checkout…"); const result = await apiRequest("/api/create-checkout", { method: "qrph", sessionTicket }); window.location.href = result.checkoutUrl; } catch (err) { notify(friendlyError(err), "warning"); } };
+  const deleteAccount = async (confirmation) => {
+    await apiRequest("/api/delete-account", { sessionTicket, confirmation });
+    clearSession(false);
+    notify("Your PlayFab account and email login were permanently deleted.", "success");
+  };
 
   if (showAdmin && isAdmin) return <AdminDashboard sessionTicket={sessionTicket} news={news} setNews={setNews} onClose={() => setShowAdmin(false)} notify={notify} />;
 
-  return <div className="site-root"><Toasts items={toasts} /><Header account={account} isAdmin={isAdmin} onAuth={setAuthMode} onAccount={() => setShowAccount(true)} onAdmin={() => setShowAdmin(true)} /><Hero account={account} ownsGame={ownsGame} onAuth={setAuthMode} onAccount={() => setShowAccount(true)} onDownload={download} /><Footer />{authMode && <AuthDialog initialMode={authMode} onClose={() => setAuthMode(null)} onSuccess={saveSession} notify={notify} />}{showAccount && account && <AccountDialog account={account} ownsGame={ownsGame} onClose={() => setShowAccount(false)} onLogout={() => clearSession(true)} onPurchase={purchase} onDownload={download} />}</div>;
+  return <div className="site-root"><Toasts items={toasts} /><Header account={account} isAdmin={isAdmin} onAuth={setAuthMode} onAccount={() => setShowAccount(true)} onAdmin={() => setShowAdmin(true)} /><Hero account={account} ownsGame={ownsGame} onAuth={setAuthMode} onAccount={() => setShowAccount(true)} onDownload={download} /><Footer />{authMode && <AuthDialog initialMode={authMode} onClose={() => setAuthMode(null)} onSuccess={saveSession} notify={notify} />}{showAccount && account && <AccountDialog account={account} ownsGame={ownsGame} onClose={() => setShowAccount(false)} onLogout={() => clearSession(true)} onDelete={deleteAccount} onPurchase={purchase} onDownload={download} />}</div>;
 }

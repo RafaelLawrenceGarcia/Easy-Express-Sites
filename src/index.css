@@ -241,6 +241,11 @@ footer { background: #050b0e; padding: 75px 0 28px; }
 .account-actions > a { grid-column: 1 / -1; text-align: center; color: #0d87a5; font-size: 10px; margin-top: 10px; }
 .account-footer { margin-top: 27px; padding-top: 18px; border-top: 1px solid #cbd5d7; display: flex; justify-content: space-between; align-items: center; color: #7c8b91; font-size: 9px; }
 .account-footer button { border: 0; background: none; color: #a33b42; font-weight: 700; cursor: pointer; padding: 0; }
+.delete-account-panel { margin-top: 24px; padding: 18px; border: 1px solid #efc3c3; background: #fff2f2; border-radius: 4px; }
+.delete-account-panel > strong { color: #9f2730; font-size: 13px; }
+.delete-account-panel > p { margin: 8px 0 14px; color: #725258; font-size: 10px; line-height: 1.55; }
+.delete-account-panel .form-alert { margin: 0 0 12px; }
+.delete-account-panel .danger-action:disabled { opacity: .45; cursor: not-allowed; }
 
 .toast-stack { position: fixed; z-index: 200; right: 22px; top: 92px; display: grid; gap: 9px; width: min(360px, calc(100vw - 44px)); }
 .toast { background: #edf2f2; color: #15252c; border: 1px solid #c9d5d7; box-shadow: 0 15px 45px rgba(0,0,0,.3); padding: 13px 15px; display: flex; gap: 11px; align-items: center; border-radius: 4px; font-size: 11px; line-height: 1.5; animation: toast-in .3s ease-out; }

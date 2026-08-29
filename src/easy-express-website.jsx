@@ -8,7 +8,7 @@ import {
   registerUser,
 } from "./playfab";
 
-const DEMO_URL = import.meta.env.VITE_DEMO_DOWNLOAD_URL || "https://github.com/RafaelLawrenceGarcia/Easy-Express-Sites/releases/download/demo-multiplayer-2026-08-30/Easy-Express-Demo-Multiplayer-2026-08-30.rar";
+const DEMO_URL = import.meta.env.VITE_DEMO_DOWNLOAD_URL || "https://github.com/RafaelLawrenceGarcia/Easy-Express-Sites/releases/download/demo-multiplayer-2026-08-30/Easy-Express-Demo-Multiplayer-2026-08-30-Fixed.rar";
 const FULL_URL = import.meta.env.VITE_FULL_GAME_DOWNLOAD_URL || "";
 
 const FEATURES = [

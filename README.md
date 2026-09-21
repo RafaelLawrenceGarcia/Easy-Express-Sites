@@ -10,7 +10,7 @@ Official website and player portal for **Easy Express**, the Team 4R PC shop sim
 
 ## Vercel configuration
 
-Set the server variables from `.env.example` in the Vercel project settings. `PLAYFAB_SECRET_KEY`, `PAYMONGO_SECRET_KEY`, and `PAYMONGO_WEBHOOK_SECRET` must never use a `VITE_` prefix because they are server-only secrets.
+Set the server variables from `.env.example` in the Vercel project settings. `PLAYFAB_SECRET_KEY`, `PAYMONGO_SECRET_KEY`, `PAYMONGO_WEBHOOK_SECRET`, and `PAYMONGO_DLC_WEBHOOK_SECRET` must never use a `VITE_` prefix because they are server-only secrets.
 
 The PlayFab secret that was previously included in frontend source must be rotated in PlayFab before deploying this version.
 
@@ -21,3 +21,10 @@ The PlayFab secret that was previously included in frontend source must be rotat
 - Login resolves the canonical PlayFab username, whether the player entered an email or username.
 - Password recovery uses PlayFab's native single-use recovery link.
 - Admin operations are allow-listed and proxied through `/api/admin`; the PlayFab secret remains on the server.
+
+## Decoration DLC
+
+- `GET /api/dlc/owned` verifies the caller's PlayFab session and returns server-owned entitlements.
+- `POST /api/dlc/checkout` accepts only a catalog pack ID and a verified PlayFab session before creating PayMongo checkout.
+- `POST /api/dlc/paymongo-webhook` verifies the dedicated PayMongo signature, validates the server-side pending order, and grants an idempotent PlayFab entitlement.
+- The ordinary full-game webhook rejects DLC products, so purchasing decorations cannot grant the full game.

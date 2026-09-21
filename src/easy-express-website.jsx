@@ -7,6 +7,8 @@ import {
   loginWithUsername,
   registerUser,
 } from "./playfab";
+import { createDlcCheckout, getOwnedDlc } from "./dlc-api";
+import { DLC_CATALOG } from "./dlc-catalog";
 
 const DEMO_URL = import.meta.env.VITE_DEMO_DOWNLOAD_URL || "https://github.com/RafaelLawrenceGarcia/Easy-Express-Sites/releases/download/demo-multiplayer-2026-08-30/Easy-Express-Demo-Multiplayer-2026-08-30-Fixed.rar";
 const FULL_URL = import.meta.env.VITE_FULL_GAME_DOWNLOAD_URL || "";
@@ -29,6 +31,8 @@ const FAQS = [
   ["Why is email verification required?", "It protects account recovery and helps keep your saved game progress connected to the right player."],
   ["I did not receive a verification code.", "Check Spam or Junk first, then use Resend code. Resending is limited briefly to prevent accidental duplicate emails."],
   ["Is this connected to EasyPC or PC Express?", "Yes. Easy Express is connected with both EasyPC and PC Express as part of the project."],
+  ["Are decoration DLC packs required?", "No. DLC decorations are optional presentation upgrades. The complete base game remains playable without them."],
+  ["How do DLC purchases reach the game?", "Buy while signed in with your Easy Express account, then use Sync purchases in the game. Only a verified payment webhook can grant ownership."],
 ];
 
 const FRIENDLY_ERRORS = {
@@ -102,6 +106,7 @@ function Header({ account, isAdmin, onAuth, onAccount, onAdmin }) {
           <a href="#game" onClick={close}>The game</a>
           <a href="#gameplay" onClick={close}>Gameplay</a>
           <a href="#media" onClick={close}>Media</a>
+          <a href="#dlc-store" onClick={close}>DLC Store</a>
           <a href="#requirements" onClick={close}>Requirements</a>
           {isAdmin && <button className="nav-admin" onClick={() => { close(); onAdmin(); }}>Admin</button>}
           {account ? (
@@ -115,7 +120,7 @@ function Header({ account, isAdmin, onAuth, onAccount, onAdmin }) {
   );
 }
 
-function Hero({ account, ownsGame, onAuth, onAccount, onDownload }) {
+function Hero({ account, sessionTicket, ownsGame, onAuth, onAccount, onDownload, notify }) {
   return (
     <main id="top">
       <section className="hero">
@@ -166,6 +171,7 @@ function Hero({ account, ownsGame, onAuth, onAccount, onDownload }) {
 
       <MediaSection />
       <NewsSection />
+      <DlcStore account={account} sessionTicket={sessionTicket} onAuth={onAuth} notify={notify} />
       <Requirements />
       <Faq />
       <section className="account-cta"><div className="page-shell"><span className="section-kicker">Your progress follows you</span><h2>One account for the website and the game.</h2><p>Register once, verify your email, then sign in inside Easy Express with the same credentials.</p><button className="button button-light" onClick={() => account ? onAccount() : onAuth("signup")}>{account ? "View my account" : "Create my account"}<b>→</b></button></div></section>
@@ -195,6 +201,97 @@ function NewsSection() {
   return <section className="news-section"><div className="page-shell"><div className="section-heading"><div><span className="section-kicker">Development log</span><h2>What’s happening at the shop.</h2></div></div><div className="news-list">{news.map((item, index) => <article key={item.id || index}><div><span>{item.type || "UPDATE"}</span><small>{item.date || "2026"}</small></div><h3>{item.title}</h3><p>{item.desc}</p></article>)}</div></div></section>;
 }
 
+function DlcStore({ account, sessionTicket, onAuth, notify }) {
+  const [owned, setOwned] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [pendingPack, setPendingPack] = useState("");
+  const query = new URLSearchParams(window.location.search);
+  const purchaseState = query.get("purchase");
+  const selectedPackId = query.get("pack");
+  const selectedPack = DLC_CATALOG.find((pack) => pack.packId === selectedPackId);
+  const returnedPurchaseIsOwned = selectedPack && owned.includes(selectedPack.entitlement);
+
+  const refreshOwnership = useCallback(async (announce = true) => {
+    if (!sessionTicket) return;
+    setLoading(true);
+    try {
+      const result = await getOwnedDlc(sessionTicket);
+      setOwned(result.entitlements || []);
+      if (announce) notify("DLC entitlements updated.", "success");
+    } catch (error) {
+      if (announce) notify(friendlyError(error), "warning");
+    } finally {
+      setLoading(false);
+    }
+  }, [sessionTicket, notify]);
+
+  useEffect(() => {
+    if (sessionTicket) refreshOwnership(false);
+    else setOwned([]);
+  }, [sessionTicket, refreshOwnership]);
+
+  const purchase = async (pack) => {
+    if (!sessionTicket) {
+      onAuth("login");
+      notify("Log in with the account you use in Easy Express before purchasing DLC.");
+      return;
+    }
+    setPendingPack(pack.packId);
+    try {
+      const result = await createDlcCheckout(sessionTicket, pack.packId);
+      window.location.assign(result.checkoutUrl);
+    } catch (error) {
+      notify(friendlyError(error), "warning");
+      setPendingPack("");
+    }
+  };
+
+  const banner = purchaseState === "pending" && returnedPurchaseIsOwned
+    ? { tone: "success", title: "DLC entitlement verified", text: "Your decoration pack is ready. Return to the game and choose Sync purchases." }
+    : purchaseState === "pending"
+      ? { tone: "pending", title: "Purchase pending verification", text: "The payment page returned successfully. Sync again in a moment while the signed webhook verifies ownership." }
+      : purchaseState === "cancelled"
+        ? { tone: "cancelled", title: "Purchase cancelled", text: "Nothing was unlocked and your DLC ownership has not changed." }
+        : purchaseState === "failed"
+          ? { tone: "cancelled", title: "Purchase not verified", text: "No DLC entitlement was granted. You can safely try again later." }
+          : null;
+
+  return (
+    <section className="dlc-section" id="dlc-store">
+      <div className="dlc-grid-overlay" />
+      <div className="page-shell dlc-shell">
+        <div className="dlc-heading">
+          <div><span className="section-kicker">Optional workshop expansions</span><h2>Make the shop unmistakably yours.</h2><p>Decoration packs improve presentation, comfort, and customer confidence through the existing capped furniture-reputation system. They never replace repair skill or normal progression.</p></div>
+          <button className="button button-ghost dlc-sync" onClick={sessionTicket ? () => refreshOwnership(true) : () => onAuth("login")} disabled={loading}>{loading ? "Syncing…" : sessionTicket ? "Sync ownership" : "Log in to view my DLC"}</button>
+        </div>
+
+        {banner && <div className={`dlc-banner dlc-banner-${banner.tone}`}><span>{banner.title}</span><p>{banner.text}</p></div>}
+        <div className="dlc-account-line"><span>My DLC / owned content</span><strong>{account ? (owned.length ? `${owned.length} verified pack${owned.length === 1 ? "" : "s"}` : "No verified packs on this account") : "Log in to view account ownership"}</strong></div>
+
+        <div className="dlc-card-grid">
+          {DLC_CATALOG.map((pack, index) => {
+            const isOwned = owned.includes(pack.entitlement);
+            const isPending = pendingPack === pack.packId;
+            return (
+              <article id={pack.packId} className={`dlc-card${selectedPackId === pack.packId ? " dlc-card-selected" : ""}`} key={pack.packId} style={{ "--pack-accent": pack.accent }}>
+                <div className="dlc-preview"><img src={pack.image} alt={`${pack.name} decoration preview`} /><span>DLC · 0{index + 1}</span><b>{isOwned ? "Owned" : "Locked"}</b></div>
+                <div className="dlc-card-body">
+                  <div className="dlc-card-title"><div><small>{pack.tag}</small><h3>{pack.name}</h3></div><strong>{isOwned ? "Owned" : pack.price}</strong></div>
+                  <p>{pack.description}</p>
+                  <div className="dlc-includes"><small>Included decorations</small><ul>{pack.items.map((item) => <li key={item}>{item}</li>)}</ul></div>
+                  <div className="dlc-benefit"><span>+</span>{pack.benefit}</div>
+                  <button className={isOwned ? "button button-ghost" : "button"} onClick={() => purchase(pack)} disabled={isOwned || isPending}>{isOwned ? "Owned · ready to place" : isPending ? "Preparing checkout…" : "Buy DLC on PayMongo"}<b>{isOwned ? "✓" : "→"}</b></button>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+        <div className="dlc-security-note"><span>Server verified</span><p>A browser return or local setting cannot unlock DLC. PayMongo confirms payment through a signed webhook, then the server attaches the entitlement to your PlayFab account.</p></div>
+      </div>
+    </section>
+  );
+}
+
 function Requirements() {
   return <section className="requirements-section" id="requirements"><div className="page-shell requirements-layout"><div><span className="section-kicker">Before you install</span><h2>Built for everyday Windows PCs.</h2><p>Final download size and performance requirements may change while the game is refined.</p></div><div className="spec-card"><div><small>Operating system</small><strong>Windows 10 / 11, 64-bit</strong></div><div><small>Processor</small><strong>Intel Core i5 or AMD equivalent</strong></div><div><small>Memory</small><strong>8 GB RAM</strong></div><div><small>Graphics</small><strong>DirectX 11 compatible GPU</strong></div><div><small>Storage</small><strong>4 GB available space</strong></div><div><small>Input</small><strong>Keyboard & mouse</strong></div></div></div></section>;
 }
@@ -204,7 +301,7 @@ function Faq() {
 }
 
 function Footer() {
-  return <footer><div className="page-shell footer-grid"><div><Brand /><p>A friendly, hands-on PC shop simulator by Team 4R.</p></div><div><small>Explore</small><a href="#game">The game</a><a href="#gameplay">Gameplay</a><a href="#requirements">Requirements</a></div><div><small>Support</small><a href="mailto:easyexpress.4r@gmail.com">Email the team</a><a href="#faq">Frequently asked questions</a></div></div><div className="page-shell footer-bottom"><span>© 2026 Team 4R. Academic project.</span><span>Connected with EasyPC and PC Express.</span></div></footer>;
+  return <footer><div className="page-shell footer-grid"><div><Brand /><p>A friendly, hands-on PC shop simulator by Team 4R.</p></div><div><small>Explore</small><a href="#game">The game</a><a href="#gameplay">Gameplay</a><a href="#dlc-store">DLC Store</a><a href="#requirements">Requirements</a></div><div><small>Support</small><a href="mailto:easyexpress.4r@gmail.com">Email the team</a><a href="#faq">Frequently asked questions</a></div></div><div className="page-shell footer-bottom"><span>© 2026 Team 4R. Academic project.</span><span>Connected with EasyPC and PC Express.</span></div></footer>;
 }
 
 function AuthDialog({ initialMode, onClose, onSuccess, notify }) {
@@ -433,5 +530,5 @@ export default function EasyExpressSite() {
 
   if (showAdmin && isAdmin) return <AdminDashboard sessionTicket={sessionTicket} news={news} setNews={setNews} onClose={() => setShowAdmin(false)} notify={notify} />;
 
-  return <div className="site-root"><Toasts items={toasts} /><Header account={account} isAdmin={isAdmin} onAuth={setAuthMode} onAccount={() => setShowAccount(true)} onAdmin={() => setShowAdmin(true)} /><Hero account={account} ownsGame={ownsGame} onAuth={setAuthMode} onAccount={() => setShowAccount(true)} onDownload={download} /><Footer />{authMode && <AuthDialog initialMode={authMode} onClose={() => setAuthMode(null)} onSuccess={saveSession} notify={notify} />}{showAccount && account && <AccountDialog account={account} ownsGame={ownsGame} onClose={() => setShowAccount(false)} onLogout={() => clearSession(true)} onDelete={deleteAccount} onPurchase={purchase} onDownload={download} />}</div>;
+  return <div className="site-root"><Toasts items={toasts} /><Header account={account} isAdmin={isAdmin} onAuth={setAuthMode} onAccount={() => setShowAccount(true)} onAdmin={() => setShowAdmin(true)} /><Hero account={account} sessionTicket={sessionTicket} ownsGame={ownsGame} onAuth={setAuthMode} onAccount={() => setShowAccount(true)} onDownload={download} notify={notify} /><Footer />{authMode && <AuthDialog initialMode={authMode} onClose={() => setAuthMode(null)} onSuccess={saveSession} notify={notify} />}{showAccount && account && <AccountDialog account={account} ownsGame={ownsGame} onClose={() => setShowAccount(false)} onLogout={() => clearSession(true)} onDelete={deleteAccount} onPurchase={purchase} onDownload={download} />}</div>;
 }

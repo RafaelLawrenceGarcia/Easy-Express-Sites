@@ -85,6 +85,9 @@ export default async function handler(req, res) {
   // ── Step 3: Extract metadata ───────────────────────────────────────────────
   const sessionAttrs = event.data.attributes.data?.attributes || {};
   const metadata     = sessionAttrs.metadata || {};
+  if (metadata.product !== "easy_express_full_game") {
+    return res.status(200).json({ received: true, skipped: true });
+  }
   const playFabId    = metadata.playfab_id;
   const paymentId    = event.data.attributes.data?.id || "pm_unknown";
   const amountPaid   = sessionAttrs.amount;          // centavos, e.g. 29900

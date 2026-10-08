@@ -9,6 +9,7 @@ async function request(action, input = {}, expected = 200, headers = {}) {
 await request('snapshot', { employeeId:'ACD5808EE029F206', role:'ceo' }, 401);
 await request('demo', {}, 403, { Origin:'https://unauthorized.example.invalid' });
 let d = await request('demo');
+await request('gameAccess', {}, 403);
 if(!d.demo || d.me.role!=='ceo' || d.employees.length!==4)throw new Error('Demo isolation failed');
 const employee = await request('provision',{ name:'Production smoke fixture', email:'qa@example.invalid', group:'QA fixtures' });
 await request('assign',{ employeeId:employee.id,dueDate:'2026-10-31',attemptLimit:3 });

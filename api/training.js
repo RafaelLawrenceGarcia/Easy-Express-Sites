@@ -78,6 +78,7 @@ export default async function handler(req, res) {
       const { state } = await store.read(); core.authorize(state, c); setCookie(req, res, c); return res.json({ data: core.snapshot(state, c) });
     }
     if (action === 'snapshot' || action === 'gameAccess') {
+      if (actor.demo && action === 'gameAccess') core.fail('Demonstration accounts cannot authorize Unity game access.', 403);
       const { state } = await store.read(); const data = core.snapshot(state, actor);
       return res.json({ data: action === 'gameAccess' ? { employeeId: actor.id, assignments: data.assignments, scenario: data.scenario, authorized: true } : data });
     }

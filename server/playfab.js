@@ -9,7 +9,16 @@ export async function playfab(endpoint, body, ticket) {
       body: JSON.stringify({ TitleId: title, ...body }), signal: AbortSignal.timeout(15000) });
   } catch { fail('PlayFab is temporarily unavailable. Please try again.', 503); }
   const p = await response.json();
-  if (p.code !== 200) fail(p.errorMessage || 'PlayFab request failed.', p.code === 401 || /password|not found|credentials/i.test(p.errorMessage || '') ? 401 : 502);
+  if (p.code !== 200) {
+    const messages = {
+      EmailAddressNotAvailable: 'This email is still attached to an existing PlayFab login. Deleting game data does not release the login. Use the existing account, or wait until its full account deletion is confirmed before registering again.',
+      UsernameNotAvailable: 'This game username is already attached to a PlayFab login. Choose another username or sign in to that account.',
+      AccountDeleted: 'PlayFab is still completing this account’s deletion. Wait for deletion to finish before registering again.',
+    };
+    const message = messages[p.error] || p.errorMessage || 'PlayFab request failed.';
+    const status = messages[p.error] ? 409 : p.code === 401 || /password|not found|credentials/i.test(p.errorMessage || '') ? 401 : 502;
+    throw Object.assign(new Error(message), { status, providerError: p.error });
+  }
   return p.data;
 }
 export async function identity(ticket) {

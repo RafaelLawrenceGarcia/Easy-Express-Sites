@@ -6,7 +6,7 @@ async function request(action, input = {}, expected = 200, headers = {}) {
   if (r.status !== expected) throw new Error(`${action}: expected ${expected}, received ${r.status}: ${p.error || 'unknown error'}`);
   const set = r.headers.get('set-cookie'); if(set)cookie=set.split(';')[0]; return p.data || p;
 }
-await request('snapshot', { employeeId:'ACD5808EE029F206', role:'ceo' }, 401);
+await request('snapshot', { employeeId:'CA613F3FEACEFDC6', role:'ceo' }, 401);
 await request('demo', {}, 403, { Origin:'https://unauthorized.example.invalid' });
 let d = await request('demo');
 await request('gameAccess', {}, 403);

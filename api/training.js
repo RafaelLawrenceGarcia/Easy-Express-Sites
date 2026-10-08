@@ -49,11 +49,17 @@ export default async function handler(req, res) {
       if (typeof password !== 'string' || !password.length || password.length > 256) core.fail('Enter your password.');
       const p = await playfab('LoginWithEmailAddress', { Email: email, Password: password });
       const i = await identity(p.SessionTicket);
-      const data = await new Store().transaction(state => {
-        const actor = { ...i, role: isCEO(i.id) ? 'ceo' : state.employees.find(e => e.id === i.id)?.role === 'admin' ? 'admin' : 'employee', demo: false };
-        if (actor.role === 'ceo' && !state.employees.some(e => e.id === i.id)) state.employees.push({ ...i, role: actor.role, group: 'Training administration', active: true, createdAt: core.now() });
-        return core.snapshot(state, actor);
-      });
+      let data;
+      try {
+        data = await new Store().transaction(state => {
+          const actor = { ...i, role: isCEO(i.id) ? 'ceo' : state.employees.find(e => e.id === i.id)?.role === 'admin' ? 'admin' : 'employee', demo: false };
+          if (actor.role === 'ceo' && !state.employees.some(e => e.id === i.id)) state.employees.push({ ...i, role: actor.role, group: 'Training administration', active: true, createdAt: core.now() });
+          return core.snapshot(state, actor);
+        });
+      } catch (e) {
+        if (e.status === 403) return res.status(403).json({ error: `${e.message} Your verified game account PlayFab ID is ${i.id}.`, code: 'EMPLOYEE_ACCESS_DENIED', account: { playFabId: i.id, isConfiguredCEO: isCEO(i.id) } });
+        throw e;
+      }
       setCookie(req, res, { ticket: p.SessionTicket, exp: Date.now() + 14400000 }); return res.json({ data });
     }
     if (action === 'recover') {

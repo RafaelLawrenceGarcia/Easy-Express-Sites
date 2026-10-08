@@ -4,7 +4,7 @@
 
 Portal: https://easy-express-sites-izwi.vercel.app
 
-The CEO identity is **ACD5808EE029F206**. Sign in using the email and password already registered with that game account. The API verifies the PlayFab session and recognizes this exact ID; entering an ID into a browser form does not grant a role. The CEO employee profile is created automatically on the first successful website sign-in.
+The CEO identity is **CA613F3FEACEFDC6**. Sign in using the email and password already registered with that game account. The API verifies the PlayFab session and recognizes this exact ID; entering an ID into a browser form does not grant a role. The CEO employee profile is created automatically on the first successful website sign-in.
 
 To add administrators later:
 
@@ -32,7 +32,7 @@ The Windows training build includes the employee authorization gate and reportin
 | Check | Result |
 |---|---|
 | React/Vite production build and ESLint | Passed |
-| Eight automated backend workflow/security tests | Passed |
+| Nine automated backend workflow/security tests | Passed |
 | Live private Blob encryption and four concurrent writes | Passed |
 | Production anonymous API and cross-origin denial | Passed |
 | Production isolated demonstration: provisioning, assignments, CEO grants and persistence | Passed |
@@ -54,7 +54,7 @@ No existing account password/session was available for a real participant playth
 
 ## Complete the signed-in workflow check
 
-1. Sign in to the portal with CEO account ACD5808EE029F206.
+1. Sign in to the portal with CEO account CA613F3FEACEFDC6.
 2. Provision an employee game account. For an existing account, confirm the PlayFab ID in the PlayFab Players page. For a new account, retain the initial credentials through your company’s approved channel; the portal does not store or email the password.
 3. Assign **PC component fundamentals**, choose a due date and set an attempt limit.
 4. Sign in as that employee to confirm only their own assignments/results appear.
@@ -177,7 +177,7 @@ Presence rules: heartbeat ≤60 seconds = online; activity ≤5 minutes = recent
 | Variable | Use |
 |---|---|
 | PLAYFAB_TITLE_ID | Existing title, 164227; public identifier |
-| EASY_EXPRESS_CEO_PLAYFAB_ID | CEO account, ACD5808EE029F206; server-owned role authority |
+| EASY_EXPRESS_CEO_PLAYFAB_ID | CEO account, CA613F3FEACEFDC6; server-owned role authority |
 | TRAINING_DATA_KEY | Stable encryption/cookie secret, configured in Vercel; never expose or casually rotate |
 | BLOB_READ_WRITE_TOKEN | Private training container credential, configured by the Vercel store attachment |
 | TRAINING_INSTALLER_PATH | Private training ZIP pathname |

@@ -12,7 +12,7 @@ if (!process.env.TRAINING_DATA_KEY) {
   catch (e) { if(e.code !== 'ENOENT')throw e; process.env.TRAINING_DATA_KEY = randomBytes(32).toString('hex'); await writeFile('work/local-training-key.txt',process.env.TRAINING_DATA_KEY); }
 }
 process.env.TRAINING_LOCAL_DIR ||= 'work/local-training';
-process.env.EASY_EXPRESS_CEO_PLAYFAB_ID ||= 'ACD5808EE029F206';
+process.env.EASY_EXPRESS_CEO_PLAYFAB_ID ||= 'CA613F3FEACEFDC6';
 const vite = await createVite({ server: { middlewareMode: true, host: '127.0.0.1' }, appType: 'spa' });
 const server = createServer(async (req, res) => {
   if (req.url?.split('?')[0] === '/api/training') {

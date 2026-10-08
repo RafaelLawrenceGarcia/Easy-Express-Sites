@@ -1,30 +1,37 @@
-# Easy Express website
+# Easy Express Training Portal
 
-Official website and player portal for **Easy Express**, the Team 4R PC shop simulator.
+React/Vite employee training portal for the existing Easy Express Unity game, deployed on the existing Vercel project `easy-express-sites-izwi`.
 
-## Local development
+Production: https://easy-express-sites-izwi.vercel.app
 
-1. Copy `.env.example` to `.env.local` and fill in the required values.
-2. Run `npm install`.
-3. Run `npm run dev`.
+Read `docs/TRAINING.md` for architecture, setup, the game contract, rubric definitions, CEO/admin access, verification and remaining signed-in test steps.
 
-## Vercel configuration
+## Local setup
 
-Set the server variables from `.env.example` in the Vercel project settings. `PLAYFAB_SECRET_KEY`, `PAYMONGO_SECRET_KEY`, `PAYMONGO_WEBHOOK_SECRET`, and `PAYMONGO_DLC_WEBHOOK_SECRET` must never use a `VITE_` prefix because they are server-only secrets.
+```sh
+npm ci
+npm run dev
+```
 
-The PlayFab secret that was previously included in frontend source must be rotated in PlayFab before deploying this version.
+The local preview listens on http://127.0.0.1:5173. Its isolated file backend stores encrypted demonstration records and a development key under ignored `work/`. It never treats demo cookies as real game authorization. Optional PlayFab title configuration comes from server environment variables.
 
-## Account flow
+## Checks
 
-- Registration creates the PlayFab account, then sends the OTP from a serverless endpoint so the code is never returned to browser code.
-- Incomplete registrations can resume email verification on the same device.
-- Login resolves the canonical PlayFab username, whether the player entered an email or username.
-- Password recovery uses PlayFab's native single-use recovery link.
-- Admin operations are allow-listed and proxied through `/api/admin`; the PlayFab secret remains on the server.
+```sh
+npm run lint
+npm test
+npm run build
+```
 
-## Decoration DLC
+`scripts/production-smoke.mjs` verifies public denial and an isolated fictional demo workflow against the live portal. It does not establish real employee PlayFab sign-in or a Unity tutorial playthrough.
 
-- `GET /api/dlc/owned` verifies the caller's PlayFab session and returns server-owned entitlements.
-- `POST /api/dlc/checkout` accepts only a catalog pack ID and a verified PlayFab session before creating PayMongo checkout.
-- `POST /api/dlc/paymongo-webhook` verifies the dedicated PayMongo signature, validates the server-side pending order, and grants an idempotent PlayFab entitlement.
-- The ordinary full-game webhook rejects DLC products, so purchasing decorations cannot grant the full game.
+## Publish
+
+```sh
+npx vercel link --project easy-express-sites-izwi --yes
+npx vercel --prod --yes
+```
+
+Confirm the linked project before publishing. The supplied URL belongs to `easy-express-sites-izwi`, which differs from the project that was previously linked in this checkout.
+
+Employee permissions are enforced by the API. The CEO identity is configured on the server; administrator grants are persisted in private encrypted storage. Browser storage does not contain shared training records, passwords, server keys or administrator role authority.

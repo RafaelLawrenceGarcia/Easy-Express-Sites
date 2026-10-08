@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import EasyExpressSite from './easy-express-website';
+import TrainingPortal from './TrainingPortal';
 import ResetPasswordPage from './ResetPasswordPage';
 import ResetConfirmPage from './ResetConfirmPage';
 
@@ -15,5 +15,5 @@ export default function App() {
   if (route === "#/reset-password") return <ResetPasswordPage />;
   if (route.startsWith("#/reset-confirm")) return <ResetConfirmPage />;
 
-  return <EasyExpressSite />;
+  return <TrainingPortal />;
 }

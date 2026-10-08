@@ -1,7 +1,5 @@
 import { useMemo, useState } from "react";
 
-const TITLE_ID = "164227";
-
 export default function ResetConfirmPage() {
   const token = useMemo(() => new URLSearchParams(window.location.search).get("token") || "", []);
   const [password, setPassword] = useState("");
@@ -18,10 +16,10 @@ export default function ResetConfirmPage() {
     if (!valid) return setError("Use at least 8 characters with one uppercase letter and one number, then confirm it exactly.");
     setLoading(true); setError("");
     try {
-      const response = await fetch(`https://${TITLE_ID}.playfabapi.com/Client/ResetPassword`, {
+      const response = await fetch('/api/reset-password', {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ TitleId: TITLE_ID, Token: token, Password: password }),
+        body: JSON.stringify({ token, newPassword: password }),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || (payload.code && payload.code !== 200)) throw new Error(payload.errorMessage || "This recovery link is invalid or expired.");

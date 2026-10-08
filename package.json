@@ -4,13 +4,14 @@
   "type": "module",
   "version": "0.0.0",
   "scripts": {
-    "dev": "vite",
+    "dev": "node scripts/dev.mjs",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --test tests/*.test.js"
   },
   "dependencies": {
-    "playfab-web-sdk": "^1.205.251205",
+    "@vercel/blob": "^2.8.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
   },

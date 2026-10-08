@@ -209,3 +209,7 @@ The Unity project is `C:/Users/garci/Documents/EasyExpress3/EasyExpress`, Unity 
 - For a larger production audience, migrate the snapshot backend to a transactional database and test that migration; the current design is scoped to the thesis/workshop workflow.
 
 The source bundle and Unity patch accompany this handoff. User edits to the two existing Unity font assets were not included in the training patch.
+
+The training build also retires the in-game paid DLC catalog and purchase synchronization controls. Compatibility code can still resolve previously saved decoration art without a paid ownership gate. Game currency remains part of the original simulation and is excluded from competency metrics. The inspected PlayFab shared settings contain no serialized developer secret.
+
+Website source is saved on the repository’s `training-portal` branch. Unity changes are present in the existing project and included separately as an integration ZIP and a patch checked against the repository’s baseline. The Windows archive contains the updated build and a start-here file. `QA-Sample-Report.csv` is fictional demonstration output, not a real employee report.

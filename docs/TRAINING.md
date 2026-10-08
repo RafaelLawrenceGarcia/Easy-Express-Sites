@@ -45,7 +45,7 @@ The encrypted schema adds `accessRequests`: request UUID, canonical player ID, a
 
 ## Visual assets and theme
 
-The portal now uses midnight navy backgrounds, dark cards/inputs/tables, readable neutral text and restrained cyan controls across public, signup, waiting, recovery and authenticated pages. Branding uses the unchanged `Assets/Resources/UI/EasyExpressPauseLogo.png` from the Unity project. The workshop secondary image is the game's existing main-menu artwork. The primary workshop illustration was generated with the built-in imagegen tool using that artwork as a reference; it is labeled as an illustration and is not represented as a gameplay screenshot.
+The portal uses midnight navy backgrounds, dark cards/inputs/tables, readable neutral text and restrained cyan controls across public, signup, waiting, recovery and authenticated pages. Branding uses the unchanged `Assets/Resources/UI/EasyExpressPauseLogo.png` from the Unity project. At the user's request, generated and illustrative workshop images were removed from the website. The current images are published stock photographs by Tima Miroshnichenko (Pexels photo 6754846, published February 8, 2021), Mikhail Nilov (Pexels photo 9242898, photographed July 21, 2021), and JÉSHOOTS (Pexels photo 4316, photographed December 22, 2012). The sign-in/registration background uses the separate JÉSHOOTS hardware close-up, so it does not repeat the homepage photograph. The source pages, photographer names, access date and Pexels license are documented in `public/photo-credits.html`. These photographs illustrate hardware work and are not presented as game screenshots, company staff, research participants or evidence of training outcomes.
 
 ## Delivered scope
 

@@ -21,7 +21,42 @@ export function provision(state, actor, input) {
   const id = text(input.id, 'PlayFab ID', 100).toUpperCase();
   if (state.employees.some(e => e.id === id)) fail('This account is already provisioned.', 409);
   const employee = { id, name: text(input.name, 'Name'), email: text(input.email, 'Email'), group: text(input.group, 'Department/group'), active: true, createdAt: now() };
-  state.employees.push(employee); audit(state, actor, 'employee.provisioned', id); return employee;
+  state.employees.push(employee);
+  const request = (state.accessRequests || []).find(r => r.playerId === id && r.status === 'pending');
+  if (request) Object.assign(request, { status: 'approved', reason: '', reviewedBy: actor.id, reviewedAt: now(), updatedAt: now() });
+  audit(state, actor, 'employee.provisioned', id); return employee;
+}
+export function accessStatus(state, actor) {
+  const employee = state.employees.find(e => e.id === actor.id);
+  if (employee?.active) return snapshot(state, actor);
+  const request = (state.accessRequests || []).find(r => r.playerId === actor.id);
+  return { accessStatus: employee ? 'inactive' : request?.status || 'unrequested',
+    me: { id: actor.id, name: request?.name || actor.name, email: actor.email }, request: request || null };
+}
+export function requestAccess(state, actor, input) {
+  if (actor.demo) fail('Use a real game account to request employee access.', 403);
+  if (state.employees.some(e => e.id === actor.id)) fail('This account already has an employee record. Contact your administrator.', 409);
+  const name = text(input.name, 'Full name'), group = text(input.group, 'Requested department / group');
+  state.accessRequests ||= [];
+  let request = state.accessRequests.find(r => r.playerId === actor.id);
+  if (request?.status === 'pending') return request;
+  if (request?.status === 'approved') fail('This request has already been approved.', 409);
+  if (request) Object.assign(request, { name, group, status: 'pending', updatedAt: now(), reason: '', reviewedBy: null, reviewedAt: null });
+  else { request = { id: randomUUID(), playerId: actor.id, email: actor.email, name, group, status: 'pending', createdAt: now(), updatedAt: now() }; state.accessRequests.push(request); }
+  audit(state, actor, 'access.requested', request.id); return request;
+}
+export function reviewAccessRequest(state, actor, input) {
+  authorize(state, actor, true);
+  const request = (state.accessRequests || []).find(r => r.id === input.requestId);
+  if (!request || !['approved', 'rejected'].includes(input.decision)) fail('Choose a request and approve or reject it.');
+  if (request.status !== 'pending') {
+    if (request.status === input.decision) return request;
+    fail('This request has already been reviewed.', 409);
+  }
+  if (input.decision === 'approved') provision(state, actor, { id: request.playerId, name: input.name || request.name, email: request.email, group: text(input.group, 'Department / group') });
+  request.status = input.decision; request.reason = input.decision === 'rejected' ? text(input.reason, 'Reason', 1000) : '';
+  request.reviewedBy = actor.id; request.reviewedAt = now(); request.updatedAt = request.reviewedAt;
+  audit(state, actor, 'access.' + input.decision, request.id); return request;
 }
 export function setActive(state, actor, input) {
   authorize(state, actor, true);
@@ -169,7 +204,7 @@ export function feedback(state, actor, input) {
 export function snapshot(state, actor) {
   const me = authorize(state, actor), visible = e => actor.role !== 'employee' || e.employeeId === actor.id;
   return { me: { ...me, role: actor.role }, demo: actor.demo, scenario, metricDefinitions, rubric: state.rubric,
-    employees: actor.role !== 'employee' ? state.employees : [me], assignments: state.assignments.filter(visible), attempts: state.attempts.filter(visible), sessions: state.sessions.filter(visible),
+    employees: actor.role !== 'employee' ? state.employees : [me], accessRequests: actor.role !== 'employee' ? state.accessRequests || [] : [], assignments: state.assignments.filter(visible), attempts: state.attempts.filter(visible), sessions: state.sessions.filter(visible),
     updatedAt: now(), installerAvailable: Boolean(process.env.TRAINING_INSTALLER_PATH), gameIntegration: 'Game source connected; deployment and signed-in end-to-end verification required.' };
 }
 export function seedDemo(state) {
@@ -181,6 +216,7 @@ export function seedDemo(state) {
     { id: 'DEMO003', name: 'Taylor Brooks', email: 'taylor@example.invalid', group: 'Customer support', active: true },
   ];
   const admin = { id: 'DEMOADMIN', role: 'admin', demo: true };
+  state.accessRequests = [{ id: randomUUID(), playerId: 'DEMOAPPLICANT', name: 'Jordan Lee', email: 'jordan@example.invalid', group: 'Technical services', status: 'pending', createdAt: now(), updatedAt: now() }];
   const dueDate = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
   for (const id of ['DEMO001','DEMO002','DEMO003']) assign(state, admin, { employeeId: id, dueDate, attemptLimit: 3 });
   for (const [id, score] of [['DEMO001', 9], ['DEMO002', 6]]) {

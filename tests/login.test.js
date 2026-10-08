@@ -7,7 +7,7 @@ import { randomBytes } from 'node:crypto';
 import handler from '../api/training.js';
 import { Store } from '../server/store.js';
 
-test('verified CEO bootstraps access; a different verified account gets its own ID without promotion', async () => {
+test('verified CEO bootstraps access; an unprovisioned account gets only its own access status', async () => {
   const dir=await mkdtemp(path.join(os.tmpdir(),'ee-login-'));
   const keys=['TRAINING_LOCAL_DIR','TRAINING_DATA_KEY','EASY_EXPRESS_CEO_PLAYFAB_ID','VERCEL'];
   const previous=Object.fromEntries(keys.map(k=>[k,process.env[k]]));
@@ -19,7 +19,7 @@ test('verified CEO bootstraps access; a different verified account gets its own 
     await handler({method:'POST',headers:{host:'localhost',origin:'http://localhost'},body:{action:'login',email:'fixture@example.invalid',password:'fixture-password',role:'ceo',employeeId:'CA613F3FEACEFDC6'}},res);return res;};
   try {
     let res=await login();assert.equal(res.statusCode,200);assert.equal(res.body.data.me.role,'ceo');assert.ok(res.headers['Set-Cookie']);
-    accountId='ACD5808EE029F206';res=await login();assert.equal(res.statusCode,403);assert.equal(res.body.account.playFabId,accountId);assert.equal(res.body.account.isConfiguredCEO,false);assert.equal(res.headers['Set-Cookie'],undefined);
+    accountId='ACD5808EE029F206';res=await login();assert.equal(res.statusCode,200);assert.equal(res.body.data.me.id,accountId);assert.equal(res.body.data.accessStatus,'unrequested');assert.equal(res.body.data.employees,undefined);assert.ok(res.headers['Set-Cookie']);
     const {state}=await new Store().read();assert.equal(state.employees.length,1);assert.equal(state.employees[0].id,'CA613F3FEACEFDC6');
   } finally {globalThis.fetch=originalFetch;for(const k of keys){if(previous[k]===undefined)delete process.env[k];else process.env[k]=previous[k];}await rm(dir,{recursive:true,force:true});}
 });

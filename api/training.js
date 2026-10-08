@@ -22,14 +22,14 @@ async function authenticate(req) {
   const employee = state.employees.find(e => e.id === i.id);
   return { ...i, ticket: c.ticket, role: isCEO(i.id) ? 'ceo' : employee?.role === 'admin' ? 'admin' : 'employee', demo: false, namespace: 'production' };
 }
-async function throttle(req, kind) {
+async function throttle(req, kind, limit = 30) {
   const ip = (req.headers['x-forwarded-for'] || 'local').split(',')[0];
   const id = createHash('sha256').update(ip + kind).digest('hex');
   await new Store().transaction(state => {
     state.rates = (state.rates || []).filter(r => r.until > Date.now());
     let rate = state.rates.find(r => r.id === id);
     if (!rate) { rate = { id, count: 0, until: Date.now() + 600000 }; state.rates.push(rate); }
-    if (++rate.count > 30) core.fail('Too many requests. Try again in ten minutes.', 429);
+    if (++rate.count > limit) core.fail('Too many requests. Try again in ten minutes.', 429);
   });
 }
 export default async function handler(req, res) {
@@ -54,12 +54,24 @@ export default async function handler(req, res) {
         data = await new Store().transaction(state => {
           const actor = { ...i, role: isCEO(i.id) ? 'ceo' : state.employees.find(e => e.id === i.id)?.role === 'admin' ? 'admin' : 'employee', demo: false };
           if (actor.role === 'ceo' && !state.employees.some(e => e.id === i.id)) state.employees.push({ ...i, role: actor.role, group: 'Training administration', active: true, createdAt: core.now() });
-          return core.snapshot(state, actor);
+          return core.accessStatus(state, actor);
         });
       } catch (e) {
         if (e.status === 403) return res.status(403).json({ error: `${e.message} Your verified game account PlayFab ID is ${i.id}.`, code: 'EMPLOYEE_ACCESS_DENIED', account: { playFabId: i.id, isConfiguredCEO: isCEO(i.id) } });
         throw e;
       }
+      setCookie(req, res, { ticket: p.SessionTicket, exp: Date.now() + 14400000 }); return res.json({ data });
+    }
+    if (action === 'register') {
+      await throttle(req, 'register', 10);
+      const name = core.text(input.name, 'Full name'), group = core.text(input.group, 'Requested department / group');
+      const email = core.text(input.email, 'Email', 254), username = core.text(input.username, 'Username', 20), password = input.password;
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !/^[A-Za-z0-9]{3,20}$/.test(username) || typeof password !== 'string' || password.length < 8 || password.length > 256) core.fail('Enter a valid email, a 3–20 character alphanumeric username and an 8–256 character password.');
+      const p = await playfab('RegisterPlayFabUser', { Email: email, Username: username, Password: password, RequireBothUsernameAndEmail: true });
+      const i = await identity(p.SessionTicket);
+      let data;
+      try { data = await new Store().transaction(state => { core.requestAccess(state, { ...i, demo: false }, { name, group }); return core.accessStatus(state, i); }); }
+      catch { core.fail('Your game account was created, but the access request could not be saved. Sign in with your new credentials and submit your request again.', 503); }
       setCookie(req, res, { ticket: p.SessionTicket, exp: Date.now() + 14400000 }); return res.json({ data });
     }
     if (action === 'recover') {
@@ -77,6 +89,11 @@ export default async function handler(req, res) {
       setCookie(req, res, c); return res.json({ data });
     }
     const actor = await authenticate(req), store = new Store(actor.namespace);
+    if (action === 'requestAccess') {
+      await throttle(req, 'requestAccess', 10);
+      const data = await store.transaction(state => { core.requestAccess(state, actor, input); return core.accessStatus(state, actor); });
+      return res.json({ data });
+    }
     if (action === 'demoRole') {
       if (!actor.demo) core.fail('Role switching is available only in the demonstration.', 403);
       const c = cookie(req);
@@ -85,7 +102,7 @@ export default async function handler(req, res) {
     }
     if (action === 'snapshot' || action === 'gameAccess') {
       if (actor.demo && action === 'gameAccess') core.fail('Demonstration accounts cannot authorize Unity game access.', 403);
-      const { state } = await store.read(); const data = core.snapshot(state, actor);
+      const { state } = await store.read(); const data = action === 'snapshot' ? core.accessStatus(state, actor) : core.snapshot(state, actor);
       return res.json({ data: action === 'gameAccess' ? { employeeId: actor.id, assignments: data.assignments, scenario: data.scenario, authorized: true } : data });
     }
     if (action === 'installer') {
@@ -118,7 +135,7 @@ export default async function handler(req, res) {
       return res.json({ data: employee });
     }
     if (actor.demo && ['sessionStart','attemptStart','events','heartbeat','sessionEnd'].includes(action)) core.fail('Demonstration sessions are fictional. Unity telemetry must use a real employee account.', 403);
-    const operations = { setActive: core.setActive, editEmployee: core.editEmployee, setRole: core.setRole, assign: core.assign, rubric: core.configureRubric, feedback: core.feedback, sessionStart: core.startSession, attemptStart: core.startAttempt, events: core.ingest, heartbeat: core.heartbeat, sessionEnd: core.endSession };
+    const operations = { reviewAccessRequest: core.reviewAccessRequest, setActive: core.setActive, editEmployee: core.editEmployee, setRole: core.setRole, assign: core.assign, rubric: core.configureRubric, feedback: core.feedback, sessionStart: core.startSession, attemptStart: core.startAttempt, events: core.ingest, heartbeat: core.heartbeat, sessionEnd: core.endSession };
     if (!operations[action]) core.fail('Unknown operation.');
     const data = await store.transaction(state => operations[action](state, actor, input)); return res.json({ data });
   } catch (e) {

@@ -17,9 +17,39 @@ To add administrators later:
 
 Only the CEO can grant or revoke administrator roles. Administrators can provision employees, assign training, review results, configure supported pass marks and provide feedback. They cannot promote themselves, deactivate the CEO or deactivate another administrator. Deactivation and role changes are audited and checked on the backend on subsequent requests.
 
+
+## Self-registration and employee approval
+
+Users can choose **Request employee access** on the public page, create a PlayFab game account and submit their full name and requested department/group. This creates a **pending access request**, not an employee record. The account uses the same email/password in the website and Unity game.
+
+Existing game accounts can sign in and submit a request without registering a duplicate account. Pending and rejected users see only their own request and a waiting/status page. The page checks every 30 seconds and has a manual status refresh; reopening the website restores the request through authenticated backend state. A declined applicant sees the administrator's reason and can explicitly resubmit. An inactive employee cannot self-reactivate by requesting approval again.
+
+Administrators and the CEO see requests under **Employees → Employee access requests**, with a dashboard notice when requests are pending. **Review request** allows approval with an assigned department/group or rejection with a reason. Approval creates active **employee** access; it never grants an administrator role. Only the CEO can grant that role through the existing employee-management controls. Duplicate submissions/reviews do not create duplicate requests or employees, and review actions are audited.
+
+Pending credentials authenticate the account but do not authorize training. Downloads, assignments, other employees' records, Unity `gameAccess`, sessions and telemetry still require an active employee record on the backend. Passwords are sent only to PlayFab and are not stored in request records. The requested name/group are applicant-supplied and must be reviewed; an email is not claimed to have been verified through an inbox challenge.
+
+The existing PlayFab **All Players → DeletePlayerAction** was removed with the user's approval on October 9, 2026, so newly created employee accounts are not automatically deleted by that rule. Keep automatic account-deletion actions disabled for this onboarding flow.
+
+Additional website API actions:
+
+| Action | Authorization and behavior |
+|---|---|
+| register | Public, same-origin and throttled; validates name/group/email/username/password, creates the game account, resolves canonical identity and saves a pending request |
+| requestAccess | Authenticated real account; saves or resubmits only its own request, ignores supplied player ID/role |
+| snapshot | Pending/inactive accounts receive only their own access status; active employees retain the original scoped workspace |
+| reviewAccessRequest | Active administrator/CEO only; `requestId`, `decision` approved/rejected, assigned `group` for approval or `reason` for rejection |
+
+If PlayFab creation succeeds but storage fails, sign in with the new credentials and submit the request again. An existing email/username must use sign-in/recovery rather than repeat registration.
+
+The encrypted schema adds `accessRequests`: request UUID, canonical player ID, account email, applicant name/group, pending/approved/rejected status, created/updated timestamps, review actor/time and rejection reason. Administrators receive the queue; applicants receive only their own request; approved employees receive no applicant queue.
+
+## Visual assets and theme
+
+The portal now uses midnight navy backgrounds, dark cards/inputs/tables, readable neutral text and restrained cyan controls across public, signup, waiting, recovery and authenticated pages. Branding uses the unchanged `Assets/Resources/UI/EasyExpressPauseLogo.png` from the Unity project. The workshop secondary image is the game's existing main-menu artwork. The primary workshop illustration was generated with the built-in imagegen tool using that artwork as a reference; it is labeled as an illustration and is not represented as a gameplay screenshot.
+
 ## Delivered scope
 
-The public storefront was replaced with a training landing page and controlled employee sign-in. DLC catalog/checkout/webhook routes, purchase ownership code, prices, payment copy, public registration UI and the old generic admin proxy were removed. Account recovery was retained; the password-reset confirmation now uses the existing protected server reset route. No company affiliation or research effectiveness claims were retained.
+The public storefront was replaced with a training landing page and controlled employee sign-in. DLC catalog/checkout/webhook routes, purchase ownership code, prices, payment copy, the old automatic-access registration UI and generic admin proxy were removed. Account recovery was retained; the password-reset confirmation now uses the existing protected server reset route. No company affiliation or research effectiveness claims were retained.
 
 The employee workspace includes assignments, due dates, attempt limits, completion status, first-answer results, practice priorities, compatible attempt comparisons, feedback and installation/support instructions. The administrator workspace includes searchable employees and profiles, department/group editing, controlled provisioning, individual/group assignment, rubric settings, filtered attempt review, CSV export and session observation. The CEO receives the additional role-management controls.
 
@@ -32,7 +62,7 @@ The Windows training build includes the employee authorization gate and reportin
 | Check | Result |
 |---|---|
 | React/Vite production build and ESLint | Passed |
-| Nine automated backend workflow/security tests | Passed |
+| Eleven automated backend workflow/security tests | Passed |
 | Live private Blob encryption and four concurrent writes | Passed |
 | Production anonymous API and cross-origin denial | Passed |
 | Production isolated demonstration: provisioning, assignments, CEO grants and persistence | Passed |

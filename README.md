@@ -35,3 +35,5 @@ npx vercel --prod --yes
 Confirm the linked project before publishing. The supplied URL belongs to `easy-express-sites-izwi`, which differs from the project that was previously linked in this checkout.
 
 Employee permissions are enforced by the API. The CEO identity is configured on the server; administrator grants are persisted in private encrypted storage. Browser storage does not contain shared training records, passwords, server keys or administrator role authority.
+
+Users can create their own PlayFab account and request employee access. Administrators/CEO approve or decline requests under Employees; pending accounts cannot use training or the game. See docs/TRAINING.md for the approval contract and dark-theme asset provenance.

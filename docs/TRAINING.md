@@ -75,12 +75,14 @@ The Windows training build includes the employee authorization gate and reportin
 | Unity question bank, serialization and disabled guest regression | Passed |
 | Windows standalone build | Succeeded |
 | Private installer access | Anonymous access denied; scoped signed GET range verified |
-| Real CEO / employee PlayFab sign-in | **Not verified during this task** |
+| Real employee PlayFab sign-in | Passed with a temporary QA account; CEO profile confirmed active |
 | Actual signed-in tutorial → authenticated Unity telemetry → portal result | **Not verified during this task** |
-| New real PlayFab account creation and email recovery | **Not verified during this task** |
+| New real PlayFab account creation and pending-access persistence | Passed with one temporary QA account, removed afterward |
+| Pending access denial and approved employee access | Passed against the live API and browser; real fixture approval used the operator storage path, administrator API/UI approval covered by automated and isolated-demo tests |
+| Email recovery delivery | **Not verified during this task** |
 | Tested minimum CPU / GPU / RAM specification | **Not available** |
 
-No existing account password/session was available for a real participant playthrough. Compilation, transport fixtures and demonstration records do not prove that the Unity tutorial has been completed by a real authorized employee. The remaining manual test is listed below. This is a documented verification dependency, not a claim that the game connection is complete.
+A temporary QA account verified real PlayFab registration, pending sign-in, blocked protected actions and access after operator approval. Its employee/request records and title player were removed afterward, and the CEO was preserved. The browser also verified fictional-request approval and persistence. No existing employee password/session was available for a real participant playthrough. Compilation, transport fixtures and demonstration records do not prove that the Unity tutorial has been completed by a real authorized employee. The remaining manual test is listed below. This is a documented verification dependency, not a claim that the game connection is complete.
 
 ## Complete the signed-in workflow check
 
@@ -233,7 +235,7 @@ The Unity project is `C:/Users/garci/Documents/EasyExpress3/EasyExpress`, Unity 
 
 - Perform the signed-in workflow test above and retain its evidence; no account password should be pasted into this chat.
 - Confirm actual company departments, personnel and support contact details before entering real records.
-- Confirm the PlayFab title’s new-account and recovery settings through a real onboarding/recovery test.
+- Confirm email recovery delivery and complete the real employee game playthrough; temporary-account registration and approval checks have passed.
 - Establish retention, secure backups and minimum supported hardware using measured testing.
 - Instrument additional game scenarios before adding their metrics or treating them as assigned assessments.
 - For a larger production audience, migrate the snapshot backend to a transactional database and test that migration; the current design is scoped to the thesis/workshop workflow.

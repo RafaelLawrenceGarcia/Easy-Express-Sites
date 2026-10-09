@@ -2,6 +2,7 @@ import { randomBytes, createHash } from 'node:crypto';
 import { Store, seal, unseal } from '../server/store.js';
 import { identity, isCEO, playfab } from '../server/playfab.js';
 import * as core from '../server/core.js';
+import { ingestGameplay, gameplayHeartbeat, seedGameplayDemo } from '../server/gameplay.js';
 import { head, issueSignedToken, presignUrl } from '@vercel/blob';
 
 const cookieName = 'ee_training';
@@ -64,7 +65,7 @@ export default async function handler(req, res) {
     }
     if (action === 'register') {
       await throttle(req, 'register', 10);
-      const name = core.text(input.name, 'Full name'), group = core.text(input.group, 'Requested department / group');
+      const name = core.text(input.name, 'Full name'), group = core.text(input.group, 'Workplace / company');
       const email = core.text(input.email, 'Email', 254), username = core.text(input.username, 'Username', 20), password = input.password;
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !/^[A-Za-z0-9]{3,20}$/.test(username) || typeof password !== 'string' || password.length < 8 || password.length > 256) core.fail('Enter a valid email, a 3–20 character alphanumeric username and an 8–256 character password.');
       const p = await playfab('RegisterPlayFabUser', { Email: email, Username: username, Password: password, RequireBothUsernameAndEmail: true });
@@ -85,7 +86,7 @@ export default async function handler(req, res) {
         await throttle(req, 'demo');
         c = { demo: true, namespace: 'demo-' + randomBytes(16).toString('hex'), id: 'DEMOADMIN', role: 'ceo', exp: Date.now() + 14400000 };
       }
-      const data = await new Store(c.namespace).transaction(state => { core.seedDemo(state); return core.snapshot(state, c); });
+      const data = await new Store(c.namespace).transaction(state => { core.seedDemo(state); seedGameplayDemo(state); return core.snapshot(state, c); });
       setCookie(req, res, c); return res.json({ data });
     }
     const actor = await authenticate(req), store = new Store(actor.namespace);
@@ -117,7 +118,7 @@ export default async function handler(req, res) {
     }
     if (action === 'provision') {
       const { state } = await store.read(); core.authorize(state, actor, true);
-      core.text(input.name, 'Employee name'); core.text(input.group, 'Department/group');
+      core.text(input.name, 'Employee name'); core.text(input.group, 'Workplace / company');
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email || '')) core.fail('Enter a valid registered email.');
       let account;
       if (actor.demo) account = { id: 'DEMO' + randomBytes(4).toString('hex').toUpperCase(), email: core.text(input.email, 'Email') };
@@ -134,8 +135,8 @@ export default async function handler(req, res) {
       catch (e) { if (input.createAccount && !actor.demo) core.fail(`Game account ${account.id} was created, but training access was not saved. Retry using Link existing account with this ID.`, 503); throw e; }
       return res.json({ data: employee });
     }
-    if (actor.demo && ['sessionStart','attemptStart','events','heartbeat','sessionEnd'].includes(action)) core.fail('Demonstration sessions are fictional. Unity telemetry must use a real employee account.', 403);
-    const operations = { reviewAccessRequest: core.reviewAccessRequest, setActive: core.setActive, editEmployee: core.editEmployee, setRole: core.setRole, assign: core.assign, rubric: core.configureRubric, feedback: core.feedback, sessionStart: core.startSession, attemptStart: core.startAttempt, events: core.ingest, heartbeat: core.heartbeat, sessionEnd: core.endSession };
+    if (actor.demo && ['sessionStart','attemptStart','events','heartbeat','sessionEnd','gameplayEvents','gameplayHeartbeat'].includes(action)) core.fail('Demonstration sessions are fictional. Unity telemetry must use a real employee account.', 403);
+    const operations = { gameplayEvents: ingestGameplay, gameplayHeartbeat, reviewAccessRequest: core.reviewAccessRequest, setActive: core.setActive, editEmployee: core.editEmployee, setRole: core.setRole, assign: core.assign, rubric: core.configureRubric, feedback: core.feedback, sessionStart: core.startSession, attemptStart: core.startAttempt, events: core.ingest, heartbeat: core.heartbeat, sessionEnd: core.endSession };
     if (!operations[action]) core.fail('Unknown operation.');
     const data = await store.transaction(state => operations[action](state, actor, input)); return res.json({ data });
   } catch (e) {

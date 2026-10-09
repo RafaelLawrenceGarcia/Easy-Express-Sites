@@ -4,7 +4,7 @@ React/Vite employee training portal for the existing Easy Express Unity game, de
 
 Production: https://easy-express-sites-izwi.vercel.app
 
-Read `docs/TRAINING.md` for architecture, setup, the game contract, rubric definitions, CEO/admin access, verification and remaining signed-in test steps.
+Read `docs/GAMEPLAY.md` for the current game-level tracking, workplace/company fields, EXE installation and verification. `docs/TRAINING.md` documents the older assessment contract retained for existing records; its assignment selector is not used by the EasyExpress4 build.
 
 ## Local setup
 
